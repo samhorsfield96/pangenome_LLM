@@ -34,11 +34,6 @@ def main():
     cluster_file = options.clusters
     outpref = options.outpref
 
-    #tool = "mmseqs2"
-    #gff_dir = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/bakta"
-    #cluster_file = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/mmseqs_id60_len60_cluster_sorted.tsv"
-    #outpref = "tokenised_genomes"
-
     # dictionary of representative sequences and their token
     reps_dict = {}
 
@@ -110,7 +105,7 @@ def main():
             o.write(genome_name + "\t" + tokenised_genome_str + "\n")
     
     # save data as pickle
-    data = (genome_list, gene_tokens, reps_dict)
+    data = (gene_tokens, reps_dict)
 
     with open(outpref + ".pkl", "wb") as f:
         pickle.dump(data, f)                  
