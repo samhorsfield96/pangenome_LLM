@@ -1,6 +1,6 @@
 # train a miniature character-level synteny model
 
-out_dir = '/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/synteny_char'
+out_dir = '/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/synteny_char_new'
 eval_interval = 250 # keep frequent because we'll overfit
 eval_iters = 200
 log_interval = 10 # don't print too too often
@@ -12,7 +12,7 @@ wandb_log = False # override via command line if you like
 wandb_project = 'synteny_char'
 wandb_run_name = 'mini-gpt'
 
-data_dir = '/home/shorsfield/software/pangenome_LLM/data/synteny_char'
+data_dir = '/home/shorsfield/software/pangenome_LLM/data/synteny_char_new'
 dataset = 'synteny_char'
 gradient_accumulation_steps = 1
 batch_size = 64

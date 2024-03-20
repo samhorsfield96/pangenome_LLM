@@ -34,6 +34,11 @@ def main():
     cluster_file = options.clusters
     outpref = options.outpref
 
+    #tool = "mmseqs2"
+    #gff_dir = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/bakta"
+    #outpref = "tokenised_genomes"
+    #cluster_file = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/mmseqs_id60_len60_cluster_sorted.tsv"
+
     # dictionary of representative sequences and their token
     reps_dict = {}
 
