@@ -30,9 +30,13 @@ class GenomeDataset(Dataset):
             (tensor) at the specified index.
     """
 
-    def __init__(self, texts, tokenizer):
+    def __init__(self, texts, tokenizer, pre_encoded=False):
         self.tokenizer = tokenizer
-        self.texts = [self.tokenizer.encode(text).ids for text in texts]
+
+        if not pre_encoded:
+            self.texts = [self.tokenizer.encode(text).ids for text in texts]
+        else:
+            self.texts = texts
 
     def __len__(self):
         return len(self.texts)
