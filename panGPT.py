@@ -36,6 +36,9 @@ class GenomeDataset(Dataset):
 
     def __len__(self):
         return len(self.texts)
+    
+    def __getitem__(self, idx):
+        return self.texts[idx]
 
     def batch_sample(self, genome_idx, max_length):
         #text = self.texts[genome_idx]
@@ -47,11 +50,11 @@ class GenomeDataset(Dataset):
 
         # add padding token, use -100 as described here: 
         # https://www.reddit.com/r/MachineLearning/comments/157zkks/d_should_i_mask_padding_tokens_when_finetuning_a/?rdt=53406
-        padded_data = data + [-100] * (
+        padded_data = data + [self.tokenizer.token_to_id("[PAD]")] * (
             max_length - len(data)
         )
 
-        padded_obs = obs + [-100] * (
+        padded_obs = obs + [self.tokenizer.token_to_id("[PAD]")] * (
             max_length - len(obs)
         )
 

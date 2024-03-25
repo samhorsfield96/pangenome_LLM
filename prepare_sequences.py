@@ -8,7 +8,7 @@ from random import shuffle
 from panGPT import GenomeDataset
 
 # download the tiny shakespeare dataset
-input_file_path = "grouped_genes.txt"
+input_file_path = "grouped_genes_test.txt"
 
 unique_chars = set()
 genes = []
@@ -36,6 +36,7 @@ trainer = trainers.WordLevelTrainer(
 )
 
 tokenizer.train_from_iterator(genes, trainer)
+tokenizer.add_tokens(["A", "C", "G", "T"])
 tokenizer.save("tokens.bin")  # Save the trained tokenizer
 
 # Split the data into training and validation sets (80% training, 20% validation)
@@ -53,7 +54,7 @@ with open("val.bin", "wb") as f:
 
 # save the meta information as well, to help us encode/decode later
 meta = {
-    'vocab_size': vocab_size
+    'vocab_size': tokenizer.get_vocab_size()
 }
 with open(os.path.join(os.path.dirname(__file__), 'meta.pkl'), 'wb') as f:
     pickle.dump(meta, f)
