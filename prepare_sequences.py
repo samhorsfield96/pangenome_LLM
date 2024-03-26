@@ -8,7 +8,7 @@ from random import shuffle
 from panGPT import GenomeDataset
 
 # download the tiny shakespeare dataset
-input_file_path = "grouped_genes_test.txt"
+input_file_path = "grouped_genes.txt"
 
 # Code from PanGPT (https://github.com/mol-evol/panGPT) developed by James McInerney
 # Initialize and train the tokenizer using the 'tokenizers' library

@@ -9,11 +9,11 @@ log_interval = 10 # don't print too too often
 always_save_checkpoint = False
 
 wandb_log = False # override via command line if you like
-wandb_project = 'synteny_char'
+wandb_project = 'gene_char'
 wandb_run_name = 'mini-gpt'
 
 data_dir = '/home/shorsfield/software/pangenome_LLM/data/gene_char'
-dataset = 'synteny_char'
+dataset = 'gene_char'
 gradient_accumulation_steps = 1
 batch_size = 64
 block_size = 256 # context of up to 256 previous characters
