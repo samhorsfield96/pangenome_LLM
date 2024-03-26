@@ -35,7 +35,7 @@ with open(input_file_path, 'r') as f:
                 contigs = "_".join(contigs)
 
                 # add end of contig and assembly tokens
-                sequence = "START _" + contigs + "_ END"
+                sequence = "[START] _" + contigs + "_ [END]"
                 genomes.append(sequence)
 
 # Code from PanGPT (https://github.com/mol-evol/panGPT) developed by James McInerney
@@ -46,7 +46,7 @@ vocab_size = len(unique_tokens)
 tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
 tokenizer.pre_tokenizer = pre_tokenizers.CharDelimiterSplit(" ")
 trainer = trainers.WordLevelTrainer(
-    special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]", "[START]", "[END]"], vocab_size=vocab_size
+    special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"], vocab_size=vocab_size
 )
 tokenizer.train_from_iterator(genomes, trainer)
 tokenizer.save("tokens.bin")  # Save the trained tokenizer
