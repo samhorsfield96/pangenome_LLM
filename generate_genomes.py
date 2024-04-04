@@ -44,10 +44,14 @@ def get_options():
                     type=int,
                     default=1,
                     help='Number of genomes to generate. Default = 1')
-    IO.add_argument('--max_new_tokens',
+    IO.add_argument('--max_genome_size',
                     type=int,
-                    default=10000,
-                    help='Maximum number of tokens to generate. Default = 10000')
+                    default=3000,
+                    help='Maximum number of gene tokens to generate. Default = 3000')
+    IO.add_argument('--max_gene_size',
+                    type=int,
+                    default=1500,
+                    help='Maximum number of nucleotide tokens to generate. Default = 1500')
     IO.add_argument('--temperature',
                 type=int,
                 default=0.8,
@@ -129,6 +133,8 @@ def main():
     #temperature = options.temperature
     #top_k = options.top_k
     #seed = options.seed
+    #max_genome_size = options.max_genome_size
+    #max_gene_size = options.max_gene_size
 
     #for debugging
     data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
@@ -140,11 +146,13 @@ def main():
     nanoGPT_path = "/home/shorsfield/software/nanoGPT"
     reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
     device = "cuda"
-    num_samples = 1
+    num_samples = 10
     max_new_tokens = 10000
-    temperature = 0.8
+    temperature = 0.95
     top_k = 200
     seed = None
+    max_genome_size = 100
+    max_gene_size = 1500
 
     dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
     device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
@@ -160,7 +168,7 @@ def main():
     synteny_model = load_LLM(seed, synteny_LLM, device)
 
     # generate all genomes first
-    pred_genomes = sample_LLM(synteny_model, device, tokenizer, max_new_tokens, temperature, top_k, special_tokens[0], special_tokens[1], num_samples, ctx)
+    pred_genomes = sample_LLM(synteny_model, device, tokenizer, max_genome_size, temperature, top_k, special_tokens[0], special_tokens[1], num_samples, ctx)
     #print(pred_genomes)
     del synteny_model
 
@@ -185,7 +193,7 @@ def main():
                 sequence = "[START] " + sequence + " [SEP]"
                 #print(sequence)
 
-                pred_sequence = sample_LLM(gene_model, device, tokeniser, max_new_tokens, temperature, top_k, sequence, special_tokens[1], 1, ctx)
+                pred_sequence = sample_LLM(gene_model, device, tokeniser, max_gene_size, temperature, top_k, sequence, special_tokens[1], 1, ctx)
                 #print(pred_sequence)
 
                 # parse newly predicted sequences
