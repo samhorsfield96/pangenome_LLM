@@ -169,8 +169,6 @@ def main():
         reps_seq_dict = pickle.load(f)
 
     # sample from gene model
-    with (open(data, "rb")) as f:
-        gene_tokens, reps_dict = pickle.load(f)
     gene_model = load_LLM(seed, gene_LLM, device)
     tokeniser = Tokenizer.from_file(gene_tokeniser_path)
     
@@ -213,6 +211,10 @@ def main():
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    # save list of genome sequences
+    with open(outdir + "/gene_sequences.pkl", "wb") as f:
+        pickle.dump(pred_genome_sequences, f)  
+
     # concatenate gene sequences per genome
     for genome_idx, genome in enumerate(pred_genome_sequences):
         genome_seq = "".join(genome)
@@ -225,7 +227,7 @@ def main():
             output_sequences.append(SeqRecord(Seq(contig), id="Contig_" + str(contig_index), description=""))
         
         SeqIO.write(output_sequences, outdir + "/genome_" + str(genome_idx) + ".fasta", "fasta")
-        
+    
 
 if __name__ == "__main__":
     main()
