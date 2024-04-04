@@ -16,9 +16,6 @@ def get_options():
     parser = argparse.ArgumentParser(description=description,
                                         prog='python tokenise_clusters.py')
     IO = parser.add_argument_group('Input/options.out')
-    IO.add_argument('--data',
-                    required=True,
-                    help='Output pkl from tokenise_genomes.py')
     IO.add_argument('--outdir',
                     default="predictions",
                     help='Output directory. Default = "predictions"')
@@ -119,7 +116,6 @@ def sample_LLM(model, device, tokenizer, max_new_tokens, temperature, top_k, sta
 def main():
     # parse options
     #options = get_options()
-    #data = options.data
     #outdir = options.outdir
     #synteny_LLM = options.synteny_LLM
     #synteny_tokeninser_path = options.synteny_tokeniser
@@ -129,7 +125,6 @@ def main():
     #clusters = options.clusters
     #device = options.device
     #num_samples = options.num_samples
-    #max_new_tokens = options.max_new_tokens
     #temperature = options.temperature
     #top_k = options.top_k
     #seed = options.seed
@@ -137,7 +132,6 @@ def main():
     #max_gene_size = options.max_gene_size
 
     #for debugging
-    data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
     outdir = "LLM_test"
     synteny_LLM = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/synteny_char/ckpt.pt"
     synteny_tokeninser_path = "/home/shorsfield/software/pangenome_LLM/data/synteny_char/tokens.bin"
@@ -146,12 +140,11 @@ def main():
     nanoGPT_path = "/home/shorsfield/software/nanoGPT"
     reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
     device = "cuda"
-    num_samples = 10
-    max_new_tokens = 10000
+    num_samples = 1
     temperature = 0.95
     top_k = 200
     seed = None
-    max_genome_size = 100
+    max_genome_size = 10
     max_gene_size = 1500
 
     dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
@@ -168,7 +161,7 @@ def main():
     synteny_model = load_LLM(seed, synteny_LLM, device)
 
     # generate all genomes first
-    pred_genomes = sample_LLM(synteny_model, device, tokenizer, max_genome_size, temperature, top_k, special_tokens[0], special_tokens[1], num_samples, ctx)
+    pred_genomes = sample_LLM(synteny_model, device, tokenizer, max_genome_size - 1, temperature, top_k, special_tokens[0], special_tokens[1], num_samples, ctx)
     #print(pred_genomes)
     del synteny_model
 
@@ -182,18 +175,22 @@ def main():
     
     # iterate through each genome, generating new gene sequence
     pred_genome_sequences = []
+    genome_token_sequences = []
     for genome in tqdm(pred_genomes):
         genes_sequences = []
+        gene_token_sequences = []
         split_genome = genome.split(" ")
         for gene in tqdm(split_genome, leave=False):
             # query model
+            gene_token = "_"
             if gene not in special_tokens and gene != "_":
                 gene_token = int(gene)
                 sequence =  reps_seq_dict[abs(gene_token)]
+                sequence_length = len(sequence)
                 sequence = "[START] " + sequence + " [SEP]"
                 #print(sequence)
 
-                pred_sequence = sample_LLM(gene_model, device, tokeniser, max_gene_size, temperature, top_k, sequence, special_tokens[1], 1, ctx)
+                pred_sequence = sample_LLM(gene_model, device, tokeniser, sequence_length, temperature, top_k, sequence, special_tokens[1], 1, ctx)
                 #print(pred_sequence)
 
                 # parse newly predicted sequences
@@ -206,22 +203,26 @@ def main():
                 # reverse complement if required
                 if gene_token < 0:
                     seq = Seq(pred_sequence)
-                    pred_sequence = str(seq.reverse_complement)
+                    pred_sequence = str(seq.reverse_complement())
 
                 genes_sequences.append(pred_sequence)
             elif gene == "_":
                 genes_sequences.append("_")
+            
+            gene_token_sequences.append(gene_token)
         
         # collect all new gene sequences
         pred_genome_sequences.append(genes_sequences)
+        genome_token_sequences.append(gene_token_sequences)
 
     # generate output directory
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
     # save list of genome sequences
-    with open(outdir + "/gene_sequences.pkl", "wb") as f:
-        pickle.dump(pred_genome_sequences, f)  
+    data = (genome_token_sequences, pred_genome_sequences)
+    with open(outdir + "/predicted_sequences.pkl", "wb") as f:
+        pickle.dump(data, f)  
 
     # concatenate gene sequences per genome
     for genome_idx, genome in enumerate(pred_genome_sequences):
@@ -229,6 +230,7 @@ def main():
 
         # generate contigs
         genome_seq = genome_seq.split("_")
+        genome_seq = [x for x in genome_seq if x != ""]
 
         output_sequences = []
         for contig_index, contig in enumerate(genome_seq):
