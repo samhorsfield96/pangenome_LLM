@@ -14,18 +14,18 @@ wandb_run_name = 'mini-gpt'
 
 data_dir = '/home/shorsfield/software/pangenome_LLM/data/synteny_char'
 dataset = 'synteny_char'
-gradient_accumulation_steps = 5
-batch_size = 32
-block_size = 1024 # context of up to N previous characters, 163K characters at a time with current settings
+gradient_accumulation_steps = 1
+batch_size = 16
+block_size = 1024 # context of up to N previous characters, 81K characters at a time with current settings
 
 # based on panGPT
 n_layer = 4
 n_head = 8
-n_embd = 384
+n_embd = 256
 dropout = 0.2
 
 learning_rate = 1e-4
-max_iters = 10000 # equal to 50 epochs of 30 million token dataset
+max_iters = 10000 # equal to N epochs of 17 million token dataset
 lr_decay_iters = 10000 # make equal to max_iters usually
 min_lr = 1e-5 # learning_rate / 10 usually
 #beta2 = 0.99 # make a bit bigger because number of tokens per iter is small

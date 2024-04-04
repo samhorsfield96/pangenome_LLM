@@ -8,6 +8,7 @@ import pickle
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from tqdm import tqdm
 
 
 def get_options():
@@ -21,6 +22,9 @@ def get_options():
     IO.add_argument('--outdir',
                     default="predictions",
                     help='Output directory. Default = "predictions"')
+    IO.add_argument('--reps',
+                    required=True,
+                    help='Output .pkl from group_sequences.py')
     IO.add_argument('--syntenyLLM',
                     required=True,
                     help='Path to output from nanoGPT trained on gene synteny.')
@@ -32,7 +36,7 @@ def get_options():
                 help='Path to output from nanoGPT trained on gene sequences.')
     IO.add_argument('--gene_tokeniser',
         required=True,
-        help='Path to gene tokeniser.bin')
+        help='Path to gene tokens.bin')
     IO.add_argument('--nanoGPT',
             required=True,
             help='Path to nanoGPT directory')
@@ -52,6 +56,10 @@ def get_options():
                 type=int,
                 default=200,
                 help='Retain only the top_k most likely tokens, clamp others to have 0 probability. Default = 0.8')
+    IO.add_argument('--seed',
+                    type=int,
+                    default=None,
+                    help='Seed for sequence sampling. Default = None')
     IO.add_argument('--device',
                     default="cuda",
                     help="Device to use. Can be one of 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc. Default = 'cuda'")
@@ -63,8 +71,9 @@ def get_options():
 def load_LLM(seed, ckpt_path, device):
     from model import GPTConfig, GPT
     
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    if seed != None:
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
     torch.backends.cuda.matmul.allow_tf32 = True # allow tf32 on matmul
     torch.backends.cudnn.allow_tf32 = True # allow tf32 on cudnn
 
@@ -105,20 +114,37 @@ def sample_LLM(model, device, tokenizer, max_new_tokens, temperature, top_k, sta
 
 def main():
     # parse options
-    options = get_options()
-    data = options.data
-    outdir = options.outdir
-    synteny_LLM = options.synteny_LLM
-    synteny_tokeninser_path = options.synteny_tokeniser
-    gene_LLM = options.gene_LLM
-    gene_tokeniser_path = options.gene_tokeniser
-    nanoGPT_path = options.nanoGPT
-    device = options.device
-    num_samples = options.num_samples
-    max_new_tokens = options.max_new_tokens
-    temperature = options.temperature
-    top_k = options.top_k
-    seed = 1337
+    #options = get_options()
+    #data = options.data
+    #outdir = options.outdir
+    #synteny_LLM = options.synteny_LLM
+    #synteny_tokeninser_path = options.synteny_tokeniser
+    #gene_LLM = options.gene_LLM
+    #gene_tokeniser_path = options.gene_tokeniser
+    #nanoGPT_path = options.nanoGPT
+    #clusters = options.clusters
+    #device = options.device
+    #num_samples = options.num_samples
+    #max_new_tokens = options.max_new_tokens
+    #temperature = options.temperature
+    #top_k = options.top_k
+    #seed = options.seed
+
+    #for debugging
+    data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
+    outdir = "LLM_test"
+    synteny_LLM = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/synteny_char/ckpt.pt"
+    synteny_tokeninser_path = "/home/shorsfield/software/pangenome_LLM/data/synteny_char/tokens.bin"
+    gene_LLM = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/gene_char/ckpt.pt"
+    gene_tokeniser_path = "/home/shorsfield/software/pangenome_LLM/data/gene_char/tokens.bin"
+    nanoGPT_path = "/home/shorsfield/software/nanoGPT"
+    reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
+    device = "cuda"
+    num_samples = 1
+    max_new_tokens = 10000
+    temperature = 0.8
+    top_k = 200
+    seed = None
 
     dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
     device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
@@ -131,39 +157,48 @@ def main():
     # load tokenizers and model
     special_tokens = ("[START]", "[END]")
     tokenizer = Tokenizer.from_file(synteny_tokeninser_path)
-    synteny_model = load_LLM(seed, dtype, synteny_LLM, device)
+    synteny_model = load_LLM(seed, synteny_LLM, device)
 
     # generate all genomes first
     pred_genomes = sample_LLM(synteny_model, device, tokenizer, max_new_tokens, temperature, top_k, special_tokens[0], special_tokens[1], num_samples, ctx)
+    #print(pred_genomes)
     del synteny_model
+
+    # generate representative gene dictionary
+    with (open(reps, "rb")) as f:
+        reps_seq_dict = pickle.load(f)
 
     # sample from gene model
     with (open(data, "rb")) as f:
         gene_tokens, reps_dict = pickle.load(f)
-    gene_model = load_LLM(seed, dtype, gene_LLM, device)
+    gene_model = load_LLM(seed, gene_LLM, device)
     tokeniser = Tokenizer.from_file(gene_tokeniser_path)
     
     # iterate through each genome, generating new gene sequence
     pred_genome_sequences = []
-    for genome in pred_genomes:
+    for genome in tqdm(pred_genomes):
         genes_sequences = []
         split_genome = genome.split(" ")
-        for gene in split_genome:
+        for gene in tqdm(split_genome, leave=False):
             # query model
             if gene not in special_tokens and gene != "_":
-                gene_id = int(gene)
-                sequence = reps_dict[abs(gene_id)]
+                gene_token = int(gene)
+                sequence =  reps_seq_dict[abs(gene_token)]
                 sequence = "[START] " + sequence + " [SEP]"
+                #print(sequence)
 
-                pred_sequence = sample_LLM(gene_model, device, tokeniser, max_new_tokens, temperature, top_k, sequence, special_tokens[1], num_samples, ctx)
+                pred_sequence = sample_LLM(gene_model, device, tokeniser, max_new_tokens, temperature, top_k, sequence, special_tokens[1], 1, ctx)
+                #print(pred_sequence)
 
                 # parse newly predicted sequences
-                pred_sequence = pred_sequence.split("[SEP]")[1]
+                pred_sequence = pred_sequence[0]
+                pred_sequence = "".join(pred_sequence)
                 pred_sequence = pred_sequence.replace(special_tokens[1], "")
-                pred_sequence = pred_sequence.replace("", "")
+                pred_sequence = pred_sequence.replace(" ", "")
+                #print(pred_sequence)
 
                 # reverse complement if required
-                if gene_id < 0:
+                if gene_token < 0:
                     seq = Seq(pred_sequence)
                     pred_sequence = str(seq.reverse_complement)
 
@@ -179,7 +214,7 @@ def main():
         os.makedirs(outdir)
 
     # concatenate gene sequences per genome
-    for genome_idx, genome in pred_genome_sequences:
+    for genome_idx, genome in enumerate(pred_genome_sequences):
         genome_seq = "".join(genome)
 
         # generate contigs
@@ -192,3 +227,5 @@ def main():
         SeqIO.write(output_sequences, outdir + "/genome_" + str(genome_idx) + ".fasta", "fasta")
         
 
+if __name__ == "__main__":
+    main()

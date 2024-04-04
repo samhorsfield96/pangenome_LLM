@@ -31,9 +31,9 @@ def main():
     fasta = options.fasta
     outpref = options.outpred
 
-    #pkl = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
-    #fasta = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/all_seqs.ffn"
-    #outpref = "grouped_genes"
+    # pkl = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
+    # fasta = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/all_seqs.ffn"
+    # outpref = "grouped_genes"
 
     with (open(pkl, "rb")) as f:
         gene_tokens, reps_dict = pickle.load(f)
@@ -55,13 +55,15 @@ def main():
                     gene_dict[gene_token] = []
                 gene_dict[gene_token].append(sequence)
     
+    with open(outpref + ".pkl", "wb") as f:
+        pickle.dump(reps_seq_dict, f)  
 
     with open(outpref + ".txt", "w") as o:
         for gene_token, gene_list in gene_dict.items():
             # write reprsentative, comma and each gene
             rep_seq = reps_seq_dict[gene_token]
             for gene in gene_list:
-                o.write(rep_seq + "," + gene + "\n")                 
+                o.write(rep_seq + "," + gene + "\n")                      
 
 if __name__ == "__main__":
     main()
