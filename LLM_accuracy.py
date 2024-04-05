@@ -7,7 +7,32 @@ from Bio.Seq import Seq
 import numpy as np
 import pandas as pd
 
+def get_options():
+    description = "Generates genomes from LLM"
+    parser = argparse.ArgumentParser(description=description,
+                                        prog='python tokenise_clusters.py')
+    IO = parser.add_argument_group('Input/options.out')
+    IO.add_argument('--outpref',
+                    default="comparisons",
+                    help='Output prefix. Default = "comparisons"')
+    IO.add_argument('--reps',
+                    required=True,
+                    help='Output .pkl from group_sequences.py')
+    IO.add_argument('--LLM_output',
+                    required=True,
+                    help='Path to output .pkl from generate_genomes.py.')
+    IO.add_argument('--token_data',
+                    required=True,
+                    help='Path to output .pkl from tokenise_clusters.py')
+    return parser.parse_args()
+
 def main():
+    # options = get_options()
+    # token_data = options.token_data
+    # reps = options.reps
+    # LLM_output = options.LLM_output
+    # outpref = options.outpref
+    
     token_data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
     reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
     LLM_output = "/home/shorsfield/software/pangenome_LLM/LLM_test_temp_0.3/predicted_sequences.pkl"
