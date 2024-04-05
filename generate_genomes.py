@@ -45,10 +45,14 @@ def get_options():
                     type=int,
                     default=3000,
                     help='Maximum number of gene tokens to generate. Default = 3000')
-    IO.add_argument('--max_gene_size',
-                    type=int,
-                    default=1500,
-                    help='Maximum number of nucleotide tokens to generate. Default = 1500')
+    IO.add_argument('--min_genome_size',
+                type=int,
+                default=100,
+                help='Minumum number of gene tokens to generate. Default = 100')
+    IO.add_argument('--max_gene_prop',
+                    type=float,
+                    default=1.5,
+                    help='Maximum length proportion simulated gene sequence can be of representative gene. Default = 1.5')
     IO.add_argument('--temperature',
                 type=int,
                 default=0.8,
@@ -133,8 +137,9 @@ def main():
     #top_k = options.top_k
     #seed = options.seed
     #max_genome_size = options.max_genome_size
-    #max_gene_size = options.max_gene_size
+    #max_gene_prop = options.max_gene_prop
     #compile = options.no_compile
+    #min_genome_size = options.min_genome_size
 
     #for debugging
     outdir = "LLM_test"
@@ -146,12 +151,16 @@ def main():
     reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
     device = "cuda"
     num_samples = 1
-    temperature = 0.95
+    temperature = 0.7
     top_k = 200
     seed = None
     max_genome_size = 100
-    max_gene_size = 1500
+    min_genome_size = 100
+    max_gene_prop = 1.5
     compile = True
+
+    # ensure min_genome_size is less than max_genome_size
+    min_genome_size = min([min_genome_size, max_genome_size])
 
     dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
     device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
@@ -166,9 +175,27 @@ def main():
     tokenizer = Tokenizer.from_file(synteny_tokeninser_path)
     synteny_model = load_LLM(seed, synteny_LLM, device, compile)
 
-    # generate all genomes first
+    # generate all genomes first, ensure all genomes are larger than min_genome_size
     print("Generating {} genomes...".format(num_samples))
-    pred_genomes = sample_LLM(synteny_model, device, tokenizer, max_genome_size - 1, temperature, top_k, special_tokens[0], special_tokens[1], num_samples, ctx)
+    total_genomes = 0
+    pred_genomes = []
+    while total_genomes < num_samples:
+        sim_genomes = sample_LLM(synteny_model, device, tokenizer, max_genome_size, temperature, top_k, special_tokens[0], special_tokens[1], num_samples - total_genomes, ctx)
+        
+        for genome in sim_genomes:
+            genome = genome.replace(special_tokens[0], "").replace(special_tokens[1], "")
+            genome = genome.split(" ")
+            genome = [x for x in genome if x != ""]
+            print(genome)
+            genome_length = len(genome)
+            
+            print("Genome length: {}".format(genome_length))
+            if genome_length >= min_genome_size:
+                pred_genomes.append(genome)
+        
+        total_genomes += len(pred_genomes)
+
+    
     #print(pred_genomes)
     del synteny_model
 
@@ -187,8 +214,7 @@ def main():
     for genome in tqdm(pred_genomes):
         genes_sequences = []
         gene_token_sequences = []
-        split_genome = genome.split(" ")
-        for gene in tqdm(split_genome, leave=False):
+        for gene in tqdm(genome, leave=False):
             # query model
             gene_token = "_"
             if gene not in special_tokens and gene != "_":
@@ -198,7 +224,7 @@ def main():
                 sequence = "[START] " + sequence + " [SEP]"
                 #print(sequence)
 
-                pred_sequence = sample_LLM(gene_model, device, tokeniser, sequence_length, temperature, top_k, sequence, special_tokens[1], 1, ctx)
+                pred_sequence = sample_LLM(gene_model, device, tokeniser, round(sequence_length * max_gene_prop), temperature, top_k, sequence, special_tokens[1], 1, ctx)
                 #print(pred_sequence)
 
                 # parse newly predicted sequences
@@ -206,6 +232,8 @@ def main():
                 pred_sequence = "".join(pred_sequence)
                 pred_sequence = pred_sequence.replace(special_tokens[1], "")
                 pred_sequence = pred_sequence.replace(" ", "")
+                #print(pred_sequence)
+                pred_sequence = pred_sequence[sequence_length:]
                 #print(pred_sequence)
 
                 # reverse complement if required
