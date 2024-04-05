@@ -35,8 +35,8 @@ def main():
     
     token_data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
     reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
-    LLM_output = "/home/shorsfield/software/pangenome_LLM/LLM_test_temp_0.3/predicted_sequences.pkl"
-    outpref = "temp_0.3_comparison"
+    LLM_output = "/home/shorsfield/software/pangenome_LLM/LLM_test_temp_0.1/predicted_sequences.pkl"
+    outpref = "temp_0.1_comparison"
     
     # load in all data
     with (open(token_data, "rb")) as f:
@@ -69,6 +69,11 @@ def main():
             seq_len_list.append(len(gene_seq))
             token_list.append(gene_token)
             genome_id_list.append(genome_id)
+
+            # catch cases where no sequence generated
+            if len(gene_seq) == 0:
+                id_list.append(0.0)
+                continue
 
             gene_seq = Seq(gene_seq)
 
