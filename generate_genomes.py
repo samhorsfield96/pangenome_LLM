@@ -54,7 +54,7 @@ def get_options():
                     default=1.5,
                     help='Maximum length proportion simulated gene sequence can be of representative gene. Default = 1.5')
     IO.add_argument('--temperature',
-                type=int,
+                type=float,
                 default=0.8,
                 help='Randomness of sampling. 1.0 = no change, < 1.0 = less random, > 1.0 = more random. Default = 0.8')
     IO.add_argument('--top_k',
@@ -73,8 +73,6 @@ def get_options():
                     default=True,
                     help='Do not compile model using Pytorch2 to increase speed.')
     
-    
-
     return parser.parse_args()
 
 def load_LLM(seed, ckpt_path, device, compile):
@@ -122,42 +120,42 @@ def sample_LLM(model, device, tokenizer, max_new_tokens, temperature, top_k, sta
     return generated_sequences
 
 def main():
-    # parse options
-    #options = get_options()
-    #outdir = options.outdir
-    #synteny_LLM = options.synteny_LLM
-    #synteny_tokeninser_path = options.synteny_tokeniser
-    #gene_LLM = options.gene_LLM
-    #gene_tokeniser_path = options.gene_tokeniser
-    #nanoGPT_path = options.nanoGPT
-    #clusters = options.clusters
-    #device = options.device
-    #num_samples = options.num_samples
-    #temperature = options.temperature
-    #top_k = options.top_k
-    #seed = options.seed
-    #max_genome_size = options.max_genome_size
-    #max_gene_prop = options.max_gene_prop
-    #compile = options.no_compile
-    #min_genome_size = options.min_genome_size
+    #parse options
+    options = get_options()
+    outdir = options.outdir
+    synteny_LLM = options.syntenyLLM
+    synteny_tokeninser_path = options.synteny_tokeniser
+    gene_LLM = options.geneLLM
+    gene_tokeniser_path = options.gene_tokeniser
+    nanoGPT_path = options.nanoGPT
+    device = options.device
+    num_samples = options.num_samples
+    temperature = options.temperature
+    top_k = options.top_k
+    reps = options.reps
+    seed = options.seed
+    max_genome_size = options.max_genome_size
+    max_gene_prop = options.max_gene_prop
+    compile = options.no_compile
+    min_genome_size = options.min_genome_size
 
     #for debugging
-    outdir = "LLM_test"
-    synteny_LLM = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/synteny_char/ckpt.pt"
-    synteny_tokeninser_path = "/home/shorsfield/software/pangenome_LLM/data/synteny_char/tokens.bin"
-    gene_LLM = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/gene_char/ckpt.pt"
-    gene_tokeniser_path = "/home/shorsfield/software/pangenome_LLM/data/gene_char/tokens.bin"
-    nanoGPT_path = "/home/shorsfield/software/nanoGPT"
-    reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
-    device = "cuda"
-    num_samples = 1
-    temperature = 0.7
-    top_k = 200
-    seed = None
-    max_genome_size = 100
-    min_genome_size = 100
-    max_gene_prop = 1.5
-    compile = True
+    # outdir = "LLM_test_temp_0.1"
+    # synteny_LLM = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/synteny_char/ckpt.pt"
+    # synteny_tokeninser_path = "/home/shorsfield/software/pangenome_LLM/data/synteny_char/tokens.bin"
+    # gene_LLM = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/gene_char/ckpt.pt"
+    # gene_tokeniser_path = "/home/shorsfield/software/pangenome_LLM/data/gene_char/tokens.bin"
+    # nanoGPT_path = "/home/shorsfield/software/nanoGPT"
+    # reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
+    # device = "cuda"
+    # num_samples = 1
+    # temperature = 0.1
+    # top_k = 25
+    # seed = None
+    # max_genome_size = 100
+    # min_genome_size = 100
+    # max_gene_prop = 1.5
+    # compile = True
 
     # ensure min_genome_size is less than max_genome_size
     min_genome_size = min([min_genome_size, max_genome_size])
@@ -186,10 +184,10 @@ def main():
             genome = genome.replace(special_tokens[0], "").replace(special_tokens[1], "")
             genome = genome.split(" ")
             genome = [x for x in genome if x != ""]
-            print(genome)
+            #print(genome)
             genome_length = len(genome)
             
-            print("Genome length: {}".format(genome_length))
+            #print("Genome length: {}".format(genome_length))
             if genome_length >= min_genome_size:
                 pred_genomes.append(genome)
         
