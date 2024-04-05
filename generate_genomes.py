@@ -64,12 +64,16 @@ def get_options():
     IO.add_argument('--device',
                     default="cuda",
                     help="Device to use. Can be one of 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc. Default = 'cuda'")
+    IO.add_argument('--no_compile',
+                    action="store_false",
+                    default=True,
+                    help='Do not compile model using Pytorch2 to increase speed.')
     
     
 
     return parser.parse_args()
 
-def load_LLM(seed, ckpt_path, device):
+def load_LLM(seed, ckpt_path, device, compile):
     from model import GPTConfig, GPT
     
     if seed != None:
@@ -130,6 +134,7 @@ def main():
     #seed = options.seed
     #max_genome_size = options.max_genome_size
     #max_gene_size = options.max_gene_size
+    #compile = options.no_compile
 
     #for debugging
     outdir = "LLM_test"
@@ -144,8 +149,9 @@ def main():
     temperature = 0.95
     top_k = 200
     seed = None
-    max_genome_size = 10
+    max_genome_size = 100
     max_gene_size = 1500
+    compile = True
 
     dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32' or 'bfloat16' or 'float16'
     device_type = 'cuda' if 'cuda' in device else 'cpu' # for later use in torch.autocast
@@ -158,9 +164,10 @@ def main():
     # load tokenizers and model
     special_tokens = ("[START]", "[END]")
     tokenizer = Tokenizer.from_file(synteny_tokeninser_path)
-    synteny_model = load_LLM(seed, synteny_LLM, device)
+    synteny_model = load_LLM(seed, synteny_LLM, device, compile)
 
     # generate all genomes first
+    print("Generating {} genomes...".format(num_samples))
     pred_genomes = sample_LLM(synteny_model, device, tokenizer, max_genome_size - 1, temperature, top_k, special_tokens[0], special_tokens[1], num_samples, ctx)
     #print(pred_genomes)
     del synteny_model
@@ -170,12 +177,13 @@ def main():
         reps_seq_dict = pickle.load(f)
 
     # sample from gene model
-    gene_model = load_LLM(seed, gene_LLM, device)
+    gene_model = load_LLM(seed, gene_LLM, device, compile)
     tokeniser = Tokenizer.from_file(gene_tokeniser_path)
     
     # iterate through each genome, generating new gene sequence
     pred_genome_sequences = []
     genome_token_sequences = []
+    print("Generating gene sequences...")
     for genome in tqdm(pred_genomes):
         genes_sequences = []
         gene_token_sequences = []
