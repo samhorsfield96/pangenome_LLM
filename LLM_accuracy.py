@@ -35,8 +35,8 @@ def main():
     
     token_data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
     reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
-    LLM_output = "/home/shorsfield/software/pangenome_LLM/LLM_test_temp_0.1/predicted_sequences.pkl"
-    outpref = "temp_0.1_comparison"
+    LLM_output = "/home/shorsfield/software/pangenome_LLM/LLM_out_temp_1.5/predicted_sequences.pkl"
+    outpref = "temp_1.5_comparison"
     
     # load in all data
     with (open(token_data, "rb")) as f:
