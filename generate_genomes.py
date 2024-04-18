@@ -254,9 +254,11 @@ def main():
         os.makedirs(outdir)
 
     # save list of genome sequences
-    data = (genome_token_sequences, pred_genome_sequences)
+    data = (pred_genomes, genome_token_sequences, pred_genome_sequences)
     with open(outdir + "/predicted_sequences.pkl", "wb") as f:
-        pickle.dump(data, f)  
+        pickle.dump(data, f)
+    
+    
 
     # concatenate gene sequences per genome
     for genome_idx, genome in enumerate(pred_genome_sequences):

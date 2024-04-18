@@ -28,16 +28,16 @@ def get_gff(directory):
     yield from files
 
 def main():
-    options = get_options()
-    tool = options.tool
-    gff_dir = options.gffs
-    cluster_file = options.clusters
-    outpref = options.outpref
+    # options = get_options()
+    # tool = options.tool
+    # gff_dir = options.gffs
+    # cluster_file = options.clusters
+    # outpref = options.outpref
 
-    #tool = "mmseqs2"
-    #gff_dir = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/bakta"
-    #outpref = "tokenised_genomes"
-    #cluster_file = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/mmseqs_id60_len60_cluster_sorted.tsv"
+    tool = "mmseqs2"
+    gff_dir = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/bakta"
+    outpref = "tokenised_genomes"
+    cluster_file = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/mmseqs_id60_len60_cluster_sorted.tsv"
 
     # dictionary of representative sequences and their token
     reps_dict = {}
@@ -45,7 +45,8 @@ def main():
     # dictionary mapping each gene to a given cluster token
     gene_tokens = {}
 
-    token = -1
+    #start at 0 as cannot assign negative 0
+    token = 0
     if tool == "mmseqs2":
         current_rep = None
         with open(cluster_file, "r") as f:

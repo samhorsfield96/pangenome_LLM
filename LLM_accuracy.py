@@ -15,6 +15,10 @@ def get_options():
     IO.add_argument('--outpref',
                     default="comparisons",
                     help='Output prefix. Default = "comparisons"')
+    IO.add_argument('--genome-only',
+                    default=False,
+                    action="store_true",
+                    help='Analyse genome only. Default = "False"')
     IO.add_argument('--reps',
                     required=True,
                     help='Output .pkl from group_sequences.py')
@@ -32,11 +36,13 @@ def main():
     # reps = options.reps
     # LLM_output = options.LLM_output
     # outpref = options.outpref
+    # genome_only = options.outpref
     
     token_data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
     reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
     LLM_output = "/home/shorsfield/software/pangenome_LLM/LLM_out_temp_1.5/predicted_sequences.pkl"
     outpref = "temp_1.5_comparison"
+    genome_only = True
     
     # load in all data
     with (open(token_data, "rb")) as f:
@@ -46,7 +52,7 @@ def main():
         reps_seq_dict = pickle.load(f)
     
     with (open(LLM_output, "rb")) as f:
-        genome_token_sequences, pred_genome_sequences = pickle.load(f)
+        pred_genomes, genome_token_sequences, pred_genome_sequences = pickle.load(f)
     
     # remove all underscores
     genome_token_sequences_iter = [[item for item in sublist if item != "_"] for sublist in genome_token_sequences]

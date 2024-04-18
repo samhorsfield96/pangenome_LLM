@@ -8,7 +8,7 @@ from random import shuffle
 from panGPT import GenomeDataset
 
 # download the tiny shakespeare dataset
-input_file_path = "grouped_genes_test.txt"
+input_file_path = "grouped_genes.txt"
 
 unique_IDs = set()
 sequences = []
@@ -24,7 +24,7 @@ with open(input_file_path, 'r') as f:
             unique_IDs.add(gene_ID)
 
 ID_tokens = [" ".join(unique_IDs) + " A T G C"]
-print(ID_tokens)
+#print(ID_tokens)
 
 tokenizer = Tokenizer(models.WordLevel(unk_token="[UNK]"))
 tokenizer.pre_tokenizer = pre_tokenizers.CharDelimiterSplit(" ")

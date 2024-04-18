@@ -1,8 +1,8 @@
 # train a miniature character-level synteny model
 
-out_dir = '/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/gene_char'
-eval_interval = 1000 # keep frequent because we'll overfit
-eval_iters = 200
+out_dir = '/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/models/gene_char_geneID_2k_iter_A'
+eval_interval = 100 # keep frequent because we'll overfit
+eval_iters = 100
 log_interval = 10 # don't print too too often
 
 # we expect to overfit on this small dataset, so only save when val improves
@@ -12,7 +12,7 @@ wandb_log = False # override via command line if you like
 wandb_project = 'gene_char'
 wandb_run_name = 'mini-gpt'
 
-data_dir = '/home/shorsfield/software/pangenome_LLM/data/gene_char'
+data_dir = '/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/training_data/gene_char_geneID'
 dataset = 'gene_char'
 gradient_accumulation_steps = 1
 batch_size = 16
@@ -25,8 +25,8 @@ n_embd = 768
 dropout = 0.2
 
 learning_rate = 1e-4
-max_iters = 20000 # equal to N epochs of 85 million token dataset
-lr_decay_iters = 20000 # make equal to max_iters usually
+max_iters = 2000 # equal to N epochs of 85 million token dataset
+lr_decay_iters = 2000 # make equal to max_iters usually
 min_lr = 1e-5 # learning_rate / 10 usually
 #beta2 = 0.99 # make a bit bigger because number of tokens per iter is small
 
