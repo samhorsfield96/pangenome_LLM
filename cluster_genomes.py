@@ -23,12 +23,14 @@ def main():
     plot = True
     outpref = "synteny"
     subsample = 100000
-    kde_bandwidth = 0.03
+    kde_bandwidth = 0.01
+    kde_tolerance = 0.2
 
     genome_list = []
     genome_name_list = []
     max_value = 0
     n_genomes = 0
+    print("Reading inputs...")
     with open(infile, 'r') as f:
         while True:
             line = f.readline()
@@ -104,7 +106,16 @@ def main():
     clusters = np.zeros(len(jaccard_acc), dtype=int)
     print("Cluster centers: {}".format(cluster_centers))
     if len(cluster_centers) > 1:
-        cutoff = (cluster_centers[0] + cluster_centers[1]) / 2
+        # decide which clusters to compare
+        cluster1 = cluster_centers[0]
+
+        # ensure that next peak is sufficiently different from first peak
+        for i in range(1, len(cluster_centers)):
+            cluster2 = cluster_centers[i]
+            if cluster2 >= cluster1 * (1 + kde_tolerance):
+                break
+
+        cutoff = (cluster1 + cluster2) / 2
         print("Accessory Jaccard cutoff: {}".format(cutoff))
         clusters = np.zeros(len(jaccard_acc), dtype=int)
         # assign as cluster 1 if above cutoff
