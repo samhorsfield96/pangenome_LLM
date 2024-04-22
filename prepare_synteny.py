@@ -48,30 +48,30 @@ train_genomes = []
 val_genomes = []
 with open(input_file_path, 'r') as f:
     while True:
-            line = f.readline()
-            if not line:
-                break
-            split_line = line.rstrip().split("\t")
-            genome_name = split_line[0]
-            split_line = " " + split_line[1] + " "
+        line = f.readline()
+        if not line:
+            break
+        split_line = line.rstrip().split("\t")
+        genome_name = split_line[0]
+        split_line = " " + split_line[1] + " "
 
-            contigs = split_line.split("_")
-            # remove empty contigs
-            contigs = [x for x in contigs if x != " "]
+        contigs = split_line.split("_")
+        # remove empty contigs
+        contigs = [x for x in contigs if x != " "]
 
-            # shuffle contig order
-            shuffle(contigs)
+        # shuffle contig order
+        shuffle(contigs)
 
-            contigs = "_".join(contigs)
+        contigs = "_".join(contigs)
 
-            # add end of contig and assembly tokens
-            sequence = "[START] _" + contigs + "_ [END]"
-            genomes.append(sequence)
+        # add end of contig and assembly tokens
+        sequence = "[START] _" + contigs + "_ [END]"
+        genomes.append(sequence)
 
-            if training_split[genome_name] == 1:
-                train_genomes.append(sequence)
-            else:
-                val_genomes.append(sequence)
+        if training_split[genome_name] == 1:
+            train_genomes.append(sequence)
+        else:
+            val_genomes.append(sequence)
 
 # Code from PanGPT (https://github.com/mol-evol/panGPT) developed by James McInerney
 # Initialize and train the tokenizer using the 'tokenizers' library

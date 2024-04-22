@@ -25,17 +25,16 @@ tokenizer.save("tokens.bin")  # Save the trained tokenizer
 
 genes = []
 with open(input_file_path, 'r') as f:
-    for line in f:
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            gene = " ".join(line.rstrip()).replace(",", "[SEP]")
+    while True:
+        line = f.readline()
+        if not line:
+            break
+        gene = " ".join(line.rstrip()).replace(",", "[SEP]")
 
-            # add end of contig and assembly tokens
-            sequence = "[START] " + gene + " [END]"
-            encoded = tokenizer.encode(sequence).ids
-            genes.append(encoded)
+        # add end of contig and assembly tokens
+        sequence = "[START] " + gene + " [END]"
+        encoded = tokenizer.encode(sequence).ids
+        genes.append(encoded)
 
 # Split the data into training and validation sets (80% training, 20% validation)
 train_genomes, val_genomes = train_test_split(genes, test_size=0.2, random_state=42)

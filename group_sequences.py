@@ -65,9 +65,9 @@ def main():
                     gene_dict[gene_token] = []
                 gene_dict[gene_token].append(sequence)
     
-    with open(outpref + ".pkl", "wb") as f:
-        pickle.dump(reps_seq_dict, f)  
 
+    cluster_dict = {}
+    gene_id = 0
     with open(outpref + ".txt", "w") as o:
         for gene_token, gene_list in gene_dict.items():
             # write reprsentative, comma and each gene
@@ -76,7 +76,17 @@ def main():
                 if out_type == "geneID":
                     o.write(str(gene_token) + " [SEP] " + " ".join(gene) + " [END]\n")
                 else:
-                    o.write(rep_seq + "," + gene + "\n")                      
+                    o.write(rep_seq + "," + gene + "\n")
+
+                # create dictionary of clusters
+                if gene_token not in cluster_dict:
+                    cluster_dict[gene_token] = []
+                cluster_dict[gene_token].append(gene_id)
+                gene_id += 1
+
+
+    with open(outpref + ".pkl", "wb") as f:
+        pickle.dump((reps_seq_dict, cluster_dict), f)  
 
     print("Average sequence length: {}".format(total_seq / num_seq))
 

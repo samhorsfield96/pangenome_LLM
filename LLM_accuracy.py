@@ -49,7 +49,7 @@ def main():
         gene_tokens, reps_dict = pickle.load(f)
     
     with (open(reps, "rb")) as f:
-        reps_seq_dict = pickle.load(f)
+        reps_seq_dict, cluster_dict = pickle.load(f)
     
     with (open(LLM_output, "rb")) as f:
         pred_genomes, genome_token_sequences, pred_genome_sequences = pickle.load(f)
