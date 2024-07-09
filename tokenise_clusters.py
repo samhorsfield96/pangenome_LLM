@@ -2,47 +2,132 @@ from pathlib import Path
 import argparse
 import os
 import pickle
+#from multiprocessing import Pool, Manager
+#from functools import partial
+import rocksdb
 
 def get_options():
     description = "Tokenises gene clusters"
     parser = argparse.ArgumentParser(description=description,
                                         prog='python tokenise_clusters.py')
     IO = parser.add_argument_group('Input/options.out')
-    IO.add_argument('--tool',
-                required=True,
-                help='Tool used for clustering. One of mmseqs2 or CD-Hit')
     IO.add_argument('--gffs',
                     required=True,
-                    help='Input directory containing gff files. Will search recursively')
+                    help='File containing gff files to search for, one absolute path per line.')
     IO.add_argument('--clusters',
                     required=True,
                     help='Cluster file.')
     IO.add_argument('--outpref',
                 default="tokenised_genomes",
                 help='Output prefix.')
+    IO.add_argument('--db',
+            default=None,
+            help='Path to previous gene tokens db. [Default=None]')   
+    IO.add_argument('--process_id',
+        default=1,
+        type=int,
+        help='Process ID. [Default = 0]')
 
     return parser.parse_args()
 
 def get_gff(directory):
-    files = (str(p.resolve()) for p in Path(directory).rglob("*.gff3"))
-    yield from files
+    files = (str(p.resolve()) for p in Path(directory).rglob("*.gff*"))
+    return list(files)
+
+def chunks(l, n):
+    """Yield n number of striped chunks from l."""
+    for i in range(0, n):
+        yield l[i::n]
+
+def generate_gene_id(unsplit_id):
+    name = unsplit_id.split("SAM")[1].split("_")[0].split(".")[0]
+    split_gene = unsplit_id.split("_")
+    gene_id = split_gene[-1]
+    contig_id = split_gene[-2][-5:]
+
+    gene_name = name + "_" + contig_id + "_" + gene_id
+
+    return gene_name
+
+def tokenise_gff(index, gff_list, outpref, gene_tokens):
+    with open(outpref + "_batch_" + str(index) + ".txt", "w") as o:
+        for gff in gff_list:
+            basename = os.path.basename(gff)
+            with open(gff, "r") as f:
+                tokenised_genome = []
+                current_contig = None
+                while True:
+                    line = f.readline()
+                    if not line or line == "##FASTA\n":
+                        break
+                    
+                    # skip commented lines
+                    if line[0] == "#":
+                        continue
+
+                    split_line = line.rstrip().split("\t")
+                    type = split_line[2]
+                    # if type == "region":
+                    #     # add space between contigs as synteny is unknown
+                    #     if len(tokenised_genome) > 0:
+                    #         tokenised_genome.append("_")
+                    # else:
+                    
+                    gene_strand = True if split_line[6] == "+" else False
+                    split_gene_id = split_line[-1].split(";")[0].replace("ID=", "").split("_")
+                    
+                    contig_ID = split_gene_id[0].zfill(5)
+                    gene_ID = split_gene_id[1]
+
+                    # add contig end
+                    if contig_ID != current_contig:
+                        if len(tokenised_genome) > 0:
+                            tokenised_genome.append("_")
+                        current_contig = contig_ID
+
+                    # build gene id to search in dictionary
+                    name = basename.split("SAM")[1].split("_")[0].split(".")[0]
+                    gene_name = name + "_" + contig_ID + "_" + gene_ID
+
+                    gene_token = gene_tokens.get(gene_name.encode())
+                    if gene_token is not None:
+                        gene_token = gene_token.decode()
+                        # multiply by minus 1 for negative strand
+                        if not gene_strand:
+                            gene_token = "-" + gene_token
+                        
+                        tokenised_genome.append(str(gene_token))
+            
+            tokenised_genome_str = " ".join(tokenised_genome)
+            o.write(basename + "\t" + tokenised_genome_str + "\n")
+    return index
 
 def main():
     options = get_options()
-    tool = options.tool
     gff_dir = options.gffs
     cluster_file = options.clusters
     outpref = options.outpref
+    gene_tokens_db = options.db
+    process_id = options.process_id - 1
+
+    #gff_dir = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/bakta"
+    #outpref = "tokenised_genomes"
+    #cluster_file = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/mmseqs_id60_len60_cluster_sorted.tsv"
 
     # dictionary of representative sequences and their token
-    reps_dict = {}
+    if gene_tokens_db is None:
+        reps_dict = {}
+        rep_to_token = {}
 
-    # dictionary mapping each gene to a given cluster token
-    gene_tokens = {}
+        # dictionary mapping each gene to a given cluster token
+        gene_tokens_db = outpref + "_gene_tokens.db"
+        gene_tokens = rocksdb.DB(gene_tokens_db, rocksdb.Options(create_if_missing=True, max_open_files=10000))
 
-    token = -1
-    if tool == "mmseqs2":
+        #start at 0 as cannot assign negative 0
+        token = 0
         current_rep = None
+        print("Generating token dictionaries...")
+        counter = 0
         with open(cluster_file, "r") as f:
             while True:
                 line = f.readline()
@@ -50,65 +135,55 @@ def main():
                     break
 
                 split_line = line.rstrip().split("\t")
-                rep = split_line[0]
-                seq = split_line[1]
+                split_rep = split_line[0]
+                split_seq = split_line[1]
 
-                # new cluster, increment token
-                if current_rep != rep:
-                    current_rep = rep
+                rep = generate_gene_id(split_rep)
+                seq = generate_gene_id(split_seq)
+
+                # allows use of non-sorted list
+                if rep not in rep_to_token:
                     token += 1
-                    reps_dict[token] = current_rep
+                    reps_dict[token] = rep
+                    rep_to_token[rep] = token
+                
+                current_token = rep_to_token[rep]
                 
                 # add sequence to cluster
-                gene_tokens[seq] = token
+                gene_tokens.put(seq.encode(), str(current_token).encode())
+                counter += 1
+                if counter % 10000000 == 0:
+                    print("At index: {}".format(counter))
 
-    #print(len(reps_dict))
+        # save data as pickle
+        print("Saving token dictionaries...")
 
-    # generate list of integers to represent genome
-    genome_list = []
-    for gff in get_gff(gff_dir):
-        basename = os.path.basename(gff)
-        with open(gff, "r") as f:
-            tokenised_genome = []
-            while True:
-                line = f.readline()
-                if not line or line == "##FASTA\n":
-                    break
-                
-                # skip commented lines
-                if line[0] == "#":
-                    continue
-
-                split_line = line.rstrip().split("\t")
-                type = split_line[2]
-                if type == "region":
-                    # add space between contigs as synteny is unknown
-                    if len(tokenised_genome) > 0:
-                        tokenised_genome.append("_")
-                else:
-                    gene_strand = True if split_line[6] == "+" else False
-                    gene_id = split_line[-1].split(";")[0].replace("ID=", "")
-                    gene_token = gene_tokens.get(gene_id, None)
-
-                    if gene_token != None:
-                        # multiply by minus 1 for negative strand
-                        if not gene_strand:
-                            gene_token *= -1
-                        
-                        tokenised_genome.append(str(gene_token))
+        with open(outpref + "_reps.pkl", "wb") as f:
+            pickle.dump(reps_dict, f)
         
-        tokenised_genome_str = " ".join(tokenised_genome)
-        genome_list.append((basename, tokenised_genome_str))
+        del reps_dict
     
-    with open(outpref + ".txt", "w") as o:
-        for genome_name, tokenised_genome_str in genome_list:
-            o.write(genome_name + "\t" + tokenised_genome_str + "\n")
+        print("Saved token dictionaries.")
+    else:
+        print("Loading db...")
+        gene_tokens = rocksdb.DB(gene_tokens_db, rocksdb.Options(max_open_files=10000), read_only=True)
     
-    # save data as pickle
-    data = (gene_tokens, reps_dict)
+        print("Generating tokenised genomes...")
 
-    with open(outpref + ".pkl", "wb") as f:
-        pickle.dump(data, f)                  
+        # generate list of integers to represent genome
+        files_list = []
+        #files_list = get_gff(gff_dir)
+        #file_list_chunks = chunks(files_list, num_processes)
+
+        with open(gff_dir, "r") as o:
+            while True:
+                line = o.readline()
+                if not line:
+                    break
+                files_list.append(line.rstrip())
+
+        index = tokenise_gff(process_id, files_list, outpref=outpref, gene_tokens=gene_tokens)
+        print("Finished batch: {}".format(str(process_id)))
 
 if __name__ == "__main__":
     main()
