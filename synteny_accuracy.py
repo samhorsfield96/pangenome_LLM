@@ -1,5 +1,6 @@
 import argparse
 import re
+import networkx as nx
 
 def get_options():
     description = "Compares synteny between simulated and generated genomes"
@@ -76,13 +77,37 @@ def main():
             line = line.rstrip()
 
             print("Pre cleaning:")
-            print(line)
+            #print(line)
             line = clean_genome(line)
 
             print("Post cleaning:")
-            print(line)
+            #print(line)
 
-            real_genome_list.append(line.split())
+            sim_genome_list.append(line.split())
+
+    DG=nx.DiGraph()
+    for index, genome in enumerate(real_genomes):
+        for i in range(len(genome) - 1):
+            u, v = genome[i], genome [i + 1]
+
+            # check if nodes are present
+            if u != "_":
+                if not DG.has_node(abs(u)) and :
+                    DG.add_node(abs(u),
+                                members_real=[],
+                                members_sim=[])
+            
+
+
+            add_cluster_u = True if not DG.has_node(u) else False
+            add_cluster_v = True if not DG.has_node(u) else False
+
+            # encode directionality, if negative reverse orientation
+            
+            DG.add_node(abs(v), label='real')
+            DG.add_edge(u, v, label='sim')
+
+
 
 if __name__ == "__main__":
     main()
