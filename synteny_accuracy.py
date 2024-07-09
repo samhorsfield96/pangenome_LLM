@@ -27,8 +27,11 @@ def clean_genome(input_string):
     pattern = r'^\s*-\s*'
     input_string = re.sub(pattern, '-', input_string)
 
-    # hyphens on their own
-    input_string = re.sub(r'\s-\s', ' ', input_string)
+    # hyphens on their own, remove with following space
+    input_string = re.sub(r'-\s', '', input_string)
+
+    # internal hyphens, add as space
+    input_string = re.sub(r'(\d)-(\d)', ' -', input_string)
 
     # trailing hyphens
     input_string = re.sub(r'\s-\s*$', '', input_string)
@@ -40,6 +43,48 @@ def clean_genome(input_string):
 
     return input_string
 
+def add_node(G, genome_idx, node_id, real=True):
+
+    if node_id != "_":
+        node_id = int(node_id)
+        if not G.has_node(abs(node_id)):
+            G.add_node(abs(node_id),
+                        members_real=[],
+                        members_sim=[])
+    
+        if real == True:
+            G.nodes[abs(node_id)]['members_real'].append(genome_idx)
+        else:
+            G.nodes[abs(node_id)]['members_sim'].append(genome_idx)
+
+def add_edge(G, genome_idx, u, v, real=True):
+
+    if u != "_" and v != "_":
+        u = int(u)
+        v = int(v)
+        u_strand = 1 if u >= 0 else 0
+        v_strand = 1 if v >= 0 else 0
+
+        # add in absolute order
+        first = min(abs(u), abs(v))
+        second = max(abs(u), abs(v))
+
+
+        same_strand = True if u_strand == v_strand else False
+        
+        if not G.has_edge(first, second):
+            G.add_edge(first, second, 
+                            members_real=[],
+                            members_sim=[],
+                            strand_real=[],
+                            strand_sim=[])
+        
+        if real == True:
+            G.edges[first, second]['members_real'].append(genome_idx)
+            G.edges[first, second]['strand_real'].append(same_strand)
+        else:
+            G.edges[first, second]['members_sim'].append(genome_idx)
+            G.edges[first, second]['strand_sim'].append(same_strand)
 
 def main():
     #options = get_options()
@@ -49,7 +94,7 @@ def main():
 
     real_genomes = "/home/shorsfield/software/panGPT/test_prompt.txt"
     sim_genomes = "/home/shorsfield/software/panGPT/simulations_temp_1.0_BPE_tokeniser.txt"
-    outpref = "sim_test.txt"
+    outpref = "sim_test"
 
     real_genome_list = []
     with open(real_genomes, "r") as f1:
@@ -76,38 +121,42 @@ def main():
                 break
             line = line.rstrip()
 
-            print("Pre cleaning:")
+            #print("Pre cleaning:")
             #print(line)
             line = clean_genome(line)
 
-            print("Post cleaning:")
+            #print("Post cleaning:")
             #print(line)
 
             sim_genome_list.append(line.split())
 
-    DG=nx.DiGraph()
-    for index, genome in enumerate(real_genomes):
+    G=nx.Graph()
+    real = True
+    for index, genome in enumerate(real_genome_list):
         for i in range(len(genome) - 1):
             u, v = genome[i], genome [i + 1]
 
-            # check if nodes are present
-            if u != "_":
-                if not DG.has_node(abs(u)) and :
-                    DG.add_node(abs(u),
-                                members_real=[],
-                                members_sim=[])
-            
+            # add nodes
+            add_node(G, index, u, real=real)
+            add_node(G, index, v, real=real)
 
+            # add edges, encoding directionality
+            add_edge(G, index, u, v, real=real)
+    
+    real = False
+    for index, genome in enumerate(sim_genome_list):
+        print(genome)
+        for i in range(len(genome) - 1):
+            u, v = genome[i], genome [i + 1]
 
-            add_cluster_u = True if not DG.has_node(u) else False
-            add_cluster_v = True if not DG.has_node(u) else False
+            # add nodes
+            add_node(G, index, u, real=real)
+            add_node(G, index, v, real=real)
 
-            # encode directionality, if negative reverse orientation
-            
-            DG.add_node(abs(v), label='real')
-            DG.add_edge(u, v, label='sim')
+            # add edges, encoding directionality
+            add_edge(G, index, u, v, real=real)
 
-
+    nx.write_gml(G, outpref + '.gml')
 
 if __name__ == "__main__":
     main()
