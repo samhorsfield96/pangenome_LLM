@@ -5,6 +5,7 @@ import pickle
 #from multiprocessing import Pool, Manager
 #from functools import partial
 import rocksdb
+import math
 
 def get_options():
     description = "Tokenises gene clusters"
@@ -12,8 +13,8 @@ def get_options():
                                         prog='python tokenise_clusters.py')
     IO = parser.add_argument_group('Input/options.out')
     IO.add_argument('--gffs',
-                    required=True,
-                    help='File containing gff files to search for, one absolute path per line.')
+                    default=None,
+                    help='File containing gff files to search for, one absolute path per line. [Default = None]')
     IO.add_argument('--clusters',
                     required=True,
                     help='Cluster file.')
@@ -114,6 +115,12 @@ def main():
     #outpref = "tokenised_genomes"
     #cluster_file = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/mmseqs_id60_len60_cluster_sorted.tsv"
 
+    opts = rocksdb.Options()
+    opts.max_open_files = 300000000
+    opts.max_bytes_for_level_base = 209715200 #(default = 10485760)
+    opts.target_file_size_base = math.ceil(opts.max_bytes_for_level_base / 10) #(default = 2097152)
+    opts.target_file_size_multiplier = 2 #(default = 1)
+
     # dictionary of representative sequences and their token
     if gene_tokens_db is None:
         reps_dict = {}
@@ -121,7 +128,8 @@ def main():
 
         # dictionary mapping each gene to a given cluster token
         gene_tokens_db = outpref + "_gene_tokens.db"
-        gene_tokens = rocksdb.DB(gene_tokens_db, rocksdb.Options(create_if_missing=True, max_open_files=10000))
+        opts.create_if_missing = True
+        gene_tokens = rocksdb.DB(gene_tokens_db, opts)
 
         #start at 0 as cannot assign negative 0
         token = 0
@@ -166,7 +174,7 @@ def main():
         print("Saved token dictionaries.")
     else:
         print("Loading db...")
-        gene_tokens = rocksdb.DB(gene_tokens_db, rocksdb.Options(max_open_files=10000), read_only=True)
+        gene_tokens = rocksdb.DB(gene_tokens_db, opts, read_only=True)
     
         print("Generating tokenised genomes...")
 
