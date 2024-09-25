@@ -47,7 +47,6 @@ def main():
         rep_to_cluster = {}
         cluster_to_rep = {}
         for rep_file in rep_files:
-            current_rep = None
             with open(rep_file, "r") as f:
                 while True:
                     line = f.readline()
@@ -58,26 +57,27 @@ def main():
                     rep = split_line[0]
                     seq = split_line[1]
 
-                    # new cluster
-                    if current_rep != rep:
-                        current_rep = rep
-
                     # if rep has not been seen before, add to new cluster
-                    if current_rep not in rep_to_cluster:
-                        rep_to_cluster[current_rep] = current_rep
-                        cluster_to_rep[current_rep] = set()
-                        cluster_to_rep[current_rep].add(current_rep)
+                    if rep not in rep_to_cluster:
+                        rep_to_cluster[rep] = rep
+                        cluster_to_rep[rep] = set()
+                        cluster_to_rep[rep].add(rep)
 
                     # if sequence is in rep_to_cluster, means it has been 
                     # clustered with a new represenative
-                    if seq in rep_to_cluster and seq != current_rep:
-                        rep_to_cluster[seq] = current_rep
+                    if seq in rep_to_cluster and seq != rep:
+                        # replace old sequence
+                        rep_to_cluster[seq] = rep
+
                         # account for duplicated IDs
                         try:
-                            cluster_to_rep[current_rep].update(cluster_to_rep[seq])
+                            cluster_to_rep[rep].update(cluster_to_rep[seq])
                             del cluster_to_rep[seq]
                         except KeyError:
                             pass
+                    elif seq != rep:
+                        # add sequence to cluster
+                        cluster_to_rep[rep].add(seq)
             print("Finished: {}".format(rep_file))
 
         print("No. clusters: {}".format(str(len(cluster_to_rep))))
@@ -92,33 +92,11 @@ def main():
             output_dicts = pickle.load(handle)
             rep_to_cluster, cluster_to_rep = output_dicts
         
+        # write output
         with open(outpref + ".tsv", "w") as o:
-            for rep_file in rep_files:
-                current_rep = None
-                with open(rep_file, "r") as f:
-                    while True:
-                        line = f.readline()
-                        if not line:
-                            break
-
-                        split_line = line.rstrip().split("\t")
-                        rep = split_line[0]
-                        seq = split_line[1]
-
-                        new_rep = rep_to_cluster[rep]
-
-                        o.write(new_rep + "\t" + seq + "\n")
-
-                print("Finished: {}".format(rep_file))
-
-    # for rep_file in rep_files:
-    #     fasta_sequences = SeqIO.parse(open(rep_file),'fasta')
-    #     for fasta in fasta_sequences:
-    #         name = fasta.id
-    #         if name not in rep_to_cluster:
-    #             rep_to_cluster[name] = name
-    #             cluster_to_rep[name] = set()
-    #             cluster_to_rep[name].add(name)
+            for rep, seqs in cluster_to_rep.items():
+                for seq in seqs:
+                    o.write(rep + "\t" + seq + "\n")
 
 
 if __name__ == "__main__":
