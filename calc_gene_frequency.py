@@ -1,6 +1,5 @@
 import argparse
 import re
-import networkx as nx
 from collections import Counter
 
 def get_options():
@@ -22,13 +21,15 @@ def main():
     outpref = options.outpref
 
     total_gene_count = 0
+    genome_count = 0
     gene_presence_total = Counter()
     gene_frequency_total = Counter()
-    with open(infile, "r") as f:
+    with open(infile, "r") as f1:
         while True:
             line = f1.readline()
             if not line:
                 break
+            genome_count += 1
             gene_presence_genome = {}
 
             line = line.rstrip()
@@ -36,7 +37,7 @@ def main():
             split_line = line.split(" ")
             for gene in split_line:
                 if gene != "_":
-                    gene_ID = abs(int(gene))
+                    gene_ID = int(gene)
 
                     # only count gene once per genome, ignore paralogs
                     gene_presence_genome[gene_ID] = 1
@@ -50,11 +51,10 @@ def main():
                 gene_presence_total[key] += entry
     
     # print to file
-    total_genes_presence = len(gene_presence_total)
-    with (outpref + ".txt", "w") as o:
-        o.write("Gene_ID\tGenome_count\tTotal_count\tGenome_freq\tTotal_freq\n")
+    with open(outpref + ".txt", "w") as o:
+        o.write("Gene_ID\tGenome_count\tTotal_count\tGenome_freq\tTotal_freq\tTotal_genomes\tTotal_genes\n")
         for gene_ID, count in gene_presence_total.items():
-            o.write("{}\t{}\t{}\t{}\t{}\n".format(gene_ID, count, gene_frequency_total[gene_ID], count/total_genes_presence, gene_frequency_total[gene_ID]/total_gene_count))
+            o.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(gene_ID, count, gene_frequency_total[gene_ID], count/genome_count, gene_frequency_total[gene_ID]/total_gene_count, genome_count, total_gene_count))
 
 
 if __name__ == "__main__":
