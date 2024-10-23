@@ -13,12 +13,17 @@ def get_options():
     IO.add_argument('--infile',
                     required=True,
                     help='Path to tokenised genome data .txt file.')
+    IO.add_argument('--absolute-IDs',
+                    action="store_true",
+                    default=False,
+                    help='Use absolute gene IDs to calculate frequency, combining forward and reverse strand genes.')
     return parser.parse_args()
 
 def main():
     options = get_options()
     infile = options.infile
     outpref = options.outpref
+    absolute_IDs = options.absolute_IDs
 
     total_gene_count = 0
     genome_count = 0
@@ -37,7 +42,7 @@ def main():
             split_line = line.split(" ")
             for gene in split_line:
                 if gene != "_":
-                    gene_ID = int(gene)
+                    gene_ID = abs(int(gene)) if absolute_IDs else int(gene)
 
                     # only count gene once per genome, ignore paralogs
                     gene_presence_genome[gene_ID] = 1
