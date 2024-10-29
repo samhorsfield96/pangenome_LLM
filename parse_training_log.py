@@ -21,8 +21,14 @@ def main():
     training_list = []
     validation_list = []
     test_list = []
+    epoch = -1
     with open(infile, "r") as f:
+        prev_epoch = -1
         for line in f:
+            # ensure on loss line
+            if "Loss:" not in line:
+                continue
+
             # format line
             split_line = line.rstrip().replace(',', '').split()
             if "Test" in line:
@@ -36,7 +42,11 @@ def main():
                 tmp_tuple = (loss, perplexity, accuracy, precision, recall, F1, kappa)
                 test_list.append(tmp_tuple)
             else: 
-                epoch = split_line[1]
+                curr_epoch = split_line[1]
+                # check if at new epoch
+                if prev_epoch != curr_epoch:
+                    epoch += 1
+                    prev_epoch = curr_epoch
                 loss = split_line[5]
                 perplexity = split_line[7]
                 if "Training" in line:
