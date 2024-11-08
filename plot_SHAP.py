@@ -58,8 +58,8 @@ def main():
 
 
         # Adding labels and legend
-        plt.xlabel("Locus Token")
-        plt.ylabel("SHAP value")
+        plt.xlabel("Gene locus")
+        plt.ylabel("SHAP value (log pseudolikelihood)")
         plt.legend()
 
         plt.savefig(outpref + "_geneid_" + str(token) + "_pos_" + str(locus) + ".png", dpi=300, bbox_inches="tight")
