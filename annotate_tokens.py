@@ -12,7 +12,7 @@ def get_options():
                     help='Cluster file.')
     IO.add_argument('--annotations',
             required=True,
-            help='Path to gene annotation FASTA file.')
+            help='Path to gene annotation tsv file.')
     IO.add_argument('--outpref',
                 default="annotated_tokens",
                 help='Output prefix.')
@@ -26,15 +26,21 @@ def main():
     
     annotation_dict = {}
     # read in annotations
-    fasta_sequences = SeqIO.parse(open(annotations),'fasta')
-    for fasta in fasta_sequences:
-        name, description = fasta.id, fasta.description
+    with open(annotations, "r") as f:
+        # ignore headers
+        f.readline()
+        f.readline()
+
+        # get column names
+        header = f.readline().rstrip()
+
+        #print(header)
+        for line in f:
+            split_line = line.rstrip().split("\t")
+            name = split_line[0]
+            parsed_name = name[3:].replace(".contig", "_")
         
-        # parse name
-        parsed_name = name[3:].replace(".contig", "_")
-        
-        annotation_dict[parsed_name] = description
-        #print(parsed_name)
+            annotation_dict[parsed_name] = split_line
 
     # read in cluster file
     with open(clusters, 'rb') as handle:
@@ -42,11 +48,12 @@ def main():
     
     # iterate through reps_dict, assigning details to each entry
     with open(outpref + ".tsv", "w") as o:
-        o.write("Name\tToken\tAnnotation\n")
+        o.write("Name\tToken\tAlternate_" + header + "\n")
         for token, name in reps_dict.items():
             annotation = annotation_dict[name]
+            annotation_joined = "\t".join(annotation)
 
-            o.write("{}\t{}\t{}\n".format(str(name), str(token), str(annotation)))
+            o.write("{}\t{}\t{}\n".format(str(name), str(token), annotation_joined))
 
 
 if __name__ == "__main__":
