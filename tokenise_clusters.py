@@ -109,7 +109,7 @@ def main():
     cluster_file = options.clusters
     outpref = options.outpref
     gene_tokens_db = options.db
-    process_id = options.process_id - 1
+    process_id = options.process_id
 
     #gff_dir = "/media/mirrored-hdd/shorsfield/jobs/pangenome_LLM/bakta"
     #outpref = "tokenised_genomes"
