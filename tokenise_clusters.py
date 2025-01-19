@@ -67,7 +67,7 @@ def tokenise_gff(index, gff_list, outpref, gene_tokens):
                         continue
 
                     split_line = line.rstrip().split("\t")
-                    type = split_line[2]
+                    #type = split_line[2]
                     # if type == "region":
                     #     # add space between contigs as synteny is unknown
                     #     if len(tokenised_genome) > 0:
@@ -76,8 +76,11 @@ def tokenise_gff(index, gff_list, outpref, gene_tokens):
                     
                     gene_strand = True if split_line[6] == "+" else False
                     split_gene_id = split_line[-1].split(";")[0].replace("ID=", "").split("_")
+
+                    # get contig name 
+                    name = split_line[0].replace("SAM", "").split(".contig") #basename.split("SAM")[1].split("_")[0].split(".")[0]
                     
-                    contig_ID = split_gene_id[0].zfill(5)
+                    contig_ID = name[1]
                     gene_ID = split_gene_id[1]
 
                     # add contig end
@@ -87,8 +90,8 @@ def tokenise_gff(index, gff_list, outpref, gene_tokens):
                         current_contig = contig_ID
 
                     # build gene id to search in dictionary
-                    name = basename.split("SAM")[1].split("_")[0].split(".")[0]
-                    gene_name = name + "_" + contig_ID + "_" + gene_ID
+                    gene_name = name[0] + "_" + contig_ID + "_" + gene_ID
+                    #print(gene_name)
 
                     gene_token = gene_tokens.get(gene_name.encode())
                     if gene_token is not None:
@@ -150,6 +153,8 @@ def main():
 
                 rep = generate_gene_id(split_rep)
                 seq = generate_gene_id(split_seq)
+                print(rep)
+                print(seq)
 
                 # allows use of non-sorted list
                 if rep not in rep_to_token:
