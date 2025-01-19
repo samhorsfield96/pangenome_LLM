@@ -98,6 +98,8 @@ def tokenise_gff(index, gff_list, outpref, gene_tokens):
                             gene_token = "-" + gene_token
                         
                         tokenised_genome.append(str(gene_token))
+                    else:
+                        print(f"{gene_name} not found")
             
             tokenised_genome_str = " ".join(tokenised_genome)
             o.write(basename + "\t" + tokenised_genome_str + "\n")
