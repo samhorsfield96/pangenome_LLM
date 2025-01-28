@@ -27,7 +27,7 @@ def get_options():
     IO.add_argument('--process_id',
         default=1,
         type=int,
-        help='Process ID. [Default = 0]')
+        help='Process ID. [Default = 1]')
 
     return parser.parse_args()
 
@@ -80,7 +80,13 @@ def tokenise_gff(index, gff_list, outpref, gene_tokens):
                     # get contig name 
                     name = split_line[0].replace("SAM", "").split(".contig") #basename.split("SAM")[1].split("_")[0].split(".")[0]
                     
-                    contig_ID = name[1]
+                    # deal with issue splitting at contig
+                    try:
+                        contig_ID = name[1]
+                    except:
+                        print(f"Can't split {split_line[0]}")
+                        continue
+                    
                     gene_ID = split_gene_id[1]
 
                     # add contig end
@@ -153,8 +159,8 @@ def main():
 
                 rep = generate_gene_id(split_rep)
                 seq = generate_gene_id(split_seq)
-                print(rep)
-                print(seq)
+                #print(rep)
+                #print(seq)
 
                 # allows use of non-sorted list
                 if rep not in rep_to_token:
