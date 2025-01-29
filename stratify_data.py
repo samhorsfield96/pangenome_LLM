@@ -46,14 +46,14 @@ def main():
         print("Sum of --val-size and --test-size cannot be more than 1.0")
         sys.exit(1)
 
-    # cluster_dict = defaultdict(list)
-    # with open(clusters, "r") as f:
-    #     f.readline()
-    #     for line in f:
-    #         split_line = line.strip().split(",")
+    cluster_dict = defaultdict(list)
+    with open(clusters, "r") as f:
+        f.readline()
+        for line in f:
+            split_line = line.strip().split(",")
             
-    #         # add genome to cluster entry 
-    #         cluster_dict[split_line[1]].append(split_line[0])
+            # add genome to cluster entry 
+            cluster_dict[split_line[1]].append(split_line[0])
 
     # open stored distances
     with open(distances + ".pkl", 'rb') as pickle_file:
@@ -65,14 +65,13 @@ def main():
     X = np.load(distances + ".npy")
     zero_dists = np.where(X.sum(axis=1) == 0.0)[0]
     del X
-    print(zero_dists)
+    #print(zero_dists)
 
     # identify indices of zero distances
     zero_dist_indices = []
     num_genomes = len(r_names)
     duplicate_set = set()
     #duplicate_dict = defaultdict(set)
-    print(f"N_genomes: {num_genomes}")
     rows, cols = np.triu_indices(num_genomes, k=1)
     for dist in zero_dists:
         i, j = rows[dist], cols[dist]
@@ -85,25 +84,25 @@ def main():
     cluster_len_dict = {}
     for cluster in cluster_dict.keys():
         genome_list = cluster_dict[cluster]
-        print_on = False
+        #print_on = False
 
         # go through genome list and remove duplicates
-        dup_set = set()
-        for genome in genome_list:
-            if genome in duplicate_dict:
-                print_on = True
-                dup_set.update(duplicate_dict[genome])
-                print(f"{genome} : {duplicate_dict[genome]}")
+        #dup_set = set()
+        #for genome in genome_list:
+            #if genome in duplicate_set:
+                #print_on = True
+                #dup_set.update(duplicate_dict[genome])
+                #print(f"{genome} : {duplicate_dict[genome]}")
         
-        if print_on:
-            print("pre")
-            print(dup_set)
-            print(genome_list)
-        genome_list = [genome for genome in genome_list if genome not in dup_set]
+        #if print_on:
+            #print("pre")
+            #print(dup_set)
+            #print(genome_list)
+        genome_list = [genome for genome in genome_list if genome not in duplicate_set]
 
-        if print_on:
-            print("post")
-            print(genome_list)
+        #if print_on:
+            #print("post")
+            #print(genome_list)
         
         # keep track of original cluster size 
         cluster_len_dict[cluster] = len(genome_list)
