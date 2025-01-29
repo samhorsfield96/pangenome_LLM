@@ -6,47 +6,6 @@ import math
 import numpy as np
 import pickle
 
-def upper_triangle_to_indices(k, N):
-    # Compute the row index
-    i = math.floor(N - 2 - math.sqrt((N - 2)**2 - 2 * k))
-    # Compute the column index
-    j = k - (i * (2 * N - i - 3)) // 2 + i + 1
-    return i, j
-
-# Taken from PopPUNK https://doi.org/10.1101/gr.241455.118
-# Copyright 2018 John Lees and Nick Croucher
-def listDistInts(refSeqs, querySeqs, self=True):
-    """Gets the ref and query ID for each row of the distance matrix
-
-    Returns an iterable with ref and query ID pairs by row.
-
-    Args:
-        refSeqs (list)
-            List of reference sequence names.
-        querySeqs (list)
-            List of query sequence names.
-        self (bool)
-            Whether a self-comparison, used when constructing a database.
-            Requires refSeqs == querySeqs
-            Default is True
-    Returns:
-        ref, query (str, str)
-            Iterable of tuples with ref and query names for each distMat row.
-    """
-    num_ref = len(refSeqs)
-    num_query = len(querySeqs)
-    if self:
-        if refSeqs != querySeqs:
-            raise RuntimeError('refSeqs must equal querySeqs for db building (self = true)')
-        for i in range(num_ref):
-            for j in range(i + 1, num_ref):
-                yield(j, i)
-    else:
-        comparisons = [(0,0)] * (len(refSeqs) * len(querySeqs))
-        for i in range(num_query):
-            for j in range(num_ref):
-                yield(j, i)
-
 def parse_args():
     """
     Parse command-line arguments.
@@ -87,59 +46,64 @@ def main():
         print("Sum of --val-size and --test-size cannot be more than 1.0")
         sys.exit(1)
 
-    cluster_dict = defaultdict(list)
-    with open(clusters, "r") as f:
-        f.readline()
-        for line in f:
-            split_line = line.strip().split(",")
+    # cluster_dict = defaultdict(list)
+    # with open(clusters, "r") as f:
+    #     f.readline()
+    #     for line in f:
+    #         split_line = line.strip().split(",")
             
-            # add genome to cluster entry 
-            cluster_dict[split_line[1]].append(split_line[0])
+    #         # add genome to cluster entry 
+    #         cluster_dict[split_line[1]].append(split_line[0])
 
     # open stored distances
     with open(distances + ".pkl", 'rb') as pickle_file:
         rlist, qlist, self = pickle.load(pickle_file)
-        #r_names = [os.path.splitext(os.path.basename(name))[0] for name in rlist]
-        q_names = [os.path.splitext(os.path.basename(name))[0] for name in qlist]
+        r_names = [os.path.splitext(os.path.basename(name))[0] for name in rlist]
+        #q_names = [os.path.splitext(os.path.basename(name))[0] for name in qlist]
 
     # Load matrix
     X = np.load(distances + ".npy")
     zero_dists = np.where(X.sum(axis=1) == 0.0)[0]
     del X
-    #print(zero_dists)
+    print(zero_dists)
 
     # identify indices of zero distances
     zero_dist_indices = []
-    num_genomes = len(q_names)
+    num_genomes = len(r_names)
     duplicate_set = set()
+    #duplicate_dict = defaultdict(set)
+    print(f"N_genomes: {num_genomes}")
+    rows, cols = np.triu_indices(num_genomes, k=1)
     for dist in zero_dists:
-        i, j = upper_triangle_to_indices(dist, num_genomes)
-        duplicate_set.add(q_names[j])
-             
+        i, j = rows[dist], cols[dist]
+        duplicate_set.add(r_names[j])
+        #duplicate_dict[r_names[i]].add(r_names[j])
+
+    #print(duplicate_dict) 
 
     # for each cluster, shuffle and randomly assign to training, don't keep tally as just all remaining genomes are training
     cluster_len_dict = {}
     for cluster in cluster_dict.keys():
         genome_list = cluster_dict[cluster]
-        #print_on = False
-        #print(genome_list)
+        print_on = False
 
         # go through genome list and remove duplicates
-        #dup_set = set()
-        #for genome in genome_list:
-            #if genome in duplicate_set:
-                #print_on = True
-                #dup_set.add(genome)
+        dup_set = set()
+        for genome in genome_list:
+            if genome in duplicate_dict:
+                print_on = True
+                dup_set.update(duplicate_dict[genome])
+                print(f"{genome} : {duplicate_dict[genome]}")
         
-        #if print_on:
-            #print("pre")
-            #print(dup_set)
-            #print(genome_list)
-        genome_list = [genome for genome in genome_list if genome not in duplicate_set]
+        if print_on:
+            print("pre")
+            print(dup_set)
+            print(genome_list)
+        genome_list = [genome for genome in genome_list if genome not in dup_set]
 
-        #if print_on:
-            #print("post")
-            #print(genome_list)
+        if print_on:
+            print("post")
+            print(genome_list)
         
         # keep track of original cluster size 
         cluster_len_dict[cluster] = len(genome_list)
