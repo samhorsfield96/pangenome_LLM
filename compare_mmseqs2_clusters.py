@@ -14,6 +14,7 @@ def get_options():
     parser.add_argument('--database', help='Large of cluster files.',
                                      required=True)
     parser.add_argument('--min-cluster-size', help='Minimum size of cluster to compare',
+                                     type=int,
                                      default=0)
     parser.add_argument('--outpref', help='Output prefix',
                                     required = True)
