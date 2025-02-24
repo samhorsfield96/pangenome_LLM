@@ -18,6 +18,10 @@ def get_options():
                                      default=0)
     parser.add_argument('--outpref', help='Output prefix',
                                     required = True)
+    parser.add_argument('--query-dict', help='Query dict .pkl file from previous run',
+                                    default=None)
+    parser.add_argument('--db-dict', help='Database dict .pkl file from previous run',
+                                default=None)
 
     return parser.parse_args()
 
@@ -33,53 +37,66 @@ def main():
     query_set = set()
     # get all queries
     print("Reading queries...", file=sys.stderr)
-    with open(query_file, "r") as f1:
-        for line in f1:
-            split_line = line.rstrip().split("\t")
-            query_id = split_line[1]
-            rep_id = split_line[0]
-            query_set.add(query_id)
+    if args.query_dict == None:
+        with open(query_file, "r") as f1:
+            for line in f1:
+                split_line = line.rstrip().split("\t")
+                query_id = split_line[1]
+                rep_id = split_line[0]
+                query_set.add(query_id)
 
-            query_set_dict[rep_id].add(query_id)
-    
-    # remove clusters below min cluster size
-    print("Filtering clusters on size...", file=sys.stderr)
-    to_remove = set()
-    if min_cluster_size > 0:
-        for query_key, dict_set in query_set_dict.items():
-            if len(dict_set) < min_cluster_size:
-                for entry in dict_set:
-                    query_set.remove(entry)
-                to_remove.add(query_key)
-    
-    for query_key in to_remove:
-        del query_set_dict[query_key]
+                query_set_dict[rep_id].add(query_id)
+        
+        # remove clusters below min cluster size
+        print("Filtering clusters on size...", file=sys.stderr)
+        to_remove = set()
+        if min_cluster_size > 0:
+            for query_key, dict_set in query_set_dict.items():
+                if len(dict_set) < min_cluster_size:
+                    for entry in dict_set:
+                        query_set.remove(entry)
+                    to_remove.add(query_key)
+        
+        for query_key in to_remove:
+            del query_set_dict[query_key]
+        
+        with open(outpref + "_query_dict.pkl", "wb") as f:
+            pickle.dump(query_set_dict, f)
+    else:
+        with open(args.query_dict, 'rb') as handle:
+            query_set_dict = pickle.load(handle)
+        
+        if args.db_dict == None:
+            for query_key, dict_set in query_set_dict.items():
+                for query_id in dict_set:
+                    query_set.add(query_id)
 
     db_set_dict = defaultdict(set)
     print("Reading database...", file=sys.stderr)
-    with open(database, "r") as f2:
-        for line in f2:
-            split_line = line.rstrip().split("\t")
-            query_id = split_line[1]
-            rep_id = split_line[0]
+    if args.db_dict == None:
+        with open(database, "r") as f2:
+            for line in f2:
+                split_line = line.rstrip().split("\t")
+                query_id = split_line[1]
+                rep_id = split_line[0]
 
-            if query_id in query_set:
-                db_set_dict[rep_id].add(query_id)
+                if query_id in query_set:
+                    db_set_dict[rep_id].add(query_id)
+        
+        with open(outpref + "_db_dict.pkl", "wb") as f:
+            pickle.dump(db_set_dict, f)
+    else:
+        with open(args.db_dict, 'rb') as handle:
+            db_set_dict = pickle.load(handle)
 
     del query_set
-
-    with open(outpref + "_query_dict.pkl", "wb") as f:
-        pickle.dump(query_set_dict, f)
-
-    with open(outpref + "_db_dict.pkl", "wb") as f:
-        pickle.dump(db_set_dict, f)
 
     # compare all sets between query and db dictionaries
     identical_sets = []
     partial_sets = []
     no_match_sets = []
     print("Matching sets...", file=sys.stderr)
-    for query_key, query_set in tqdm(query_set_dict).items():
+    for query_key, query_set in tqdm(query_set_dict.items()):
         match_found = False
         for db_key, db_set in db_set_dict.items():
             
