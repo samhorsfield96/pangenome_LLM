@@ -1,6 +1,8 @@
 from collections import defaultdict
 import pickle
 import argparse
+import sys
+from tqdm import tqdm
 
 def get_options():
 
@@ -11,6 +13,8 @@ def get_options():
                                     required=True)
     parser.add_argument('--database', help='Large of cluster files.',
                                      required=True)
+    parser.add_argument('--min-cluster-size', help='Minimum size of cluster to compare',
+                                     default=0)
     parser.add_argument('--outpref', help='Output prefix',
                                     required = True)
 
@@ -22,11 +26,12 @@ def main():
     query_file = args.query
     database = args.database
     outpref = args.outpref
+    min_cluster_size = args.min_cluster_size
 
     query_set_dict = defaultdict(set)
     query_set = set()
     # get all queries
-    print("Reading queries...")
+    print("Reading queries...", file=sys.stderr)
     with open(query_file, "r") as f1:
         for line in f1:
             split_line = line.rstrip().split("\t")
@@ -36,8 +41,21 @@ def main():
 
             query_set_dict[rep_id].add(query_id)
     
+    # remove clusters below min cluster size
+    print("Filtering clusters on size...", file=sys.stderr)
+    to_remove = set()
+    if min_cluster_size > 0:
+        for query_key, dict_set in query_set_dict.items():
+            if len(dict_set) < min_cluster_size:
+                for entry in dict_set:
+                    query_set.remove(entry)
+                to_remove.add(query_key)
+    
+    for query_key in to_remove:
+        del query_set_dict[query_key]
+
     db_set_dict = defaultdict(set)
-    print("Reading database...")
+    print("Reading database...", file=sys.stderr)
     with open(database, "r") as f2:
         for line in f2:
             split_line = line.rstrip().split("\t")
@@ -49,12 +67,18 @@ def main():
 
     del query_set
 
+    with open(outpref + "_query_dict.pkl", "wb") as f:
+        pickle.dump(query_set_dict, f)
+
+    with open(outpref + "_db_dict.pkl", "wb") as f:
+        pickle.dump(db_set_dict, f)
+
     # compare all sets between query and db dictionaries
     identical_sets = []
     partial_sets = []
     no_match_sets = []
-    print("Matching sets...")
-    for query_key, query_set in query_set_dict.items():
+    print("Matching sets...", file=sys.stderr)
+    for query_key, query_set in tqdm(query_set_dict).items():
         match_found = False
         for db_key, db_set in db_set_dict.items():
             
@@ -77,12 +101,7 @@ def main():
         if match_found == False:
             no_match_sets.append((query_key, "NA", len(query_set), 0, 0.0, 0.0))
                 
-    print("Writing files...")
-    with open(outpref + "_query_dict.pkl", "wb") as f:
-        pickle.dump(query_set_dict, f)
-
-    with open(outpref + "_db_dict.pkl", "wb") as f:
-        pickle.dump(db_set_dict, f)
+    print("Writing files...", file=sys.stderr)
 
     del query_set_dict
     del db_set_dict
