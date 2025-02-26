@@ -13,6 +13,7 @@ def get_options():
     parser.add_argument("--outpref", type=str, default="output", help="Output prefix. Default = 'output'")
     parser.add_argument("--downsample", type=str, default=None, help="File of single column of genome IDs to downsample by, does not have a header.")
     parser.add_argument("--split-by", type=str, default="none", choices=['year', 'month', 'day', 'none'], help="How to stratify samples by date.")
+    parser.add_argument("--date-type", type=str, default="collection_date", choices=['collection_date', 'last_updated'], help="Date on which to sample.")
 
     args = parser.parse_args()
 
@@ -24,25 +25,32 @@ def main():
     outpref = options.outpref
     downsample = options.downsample
     split_by = options.split_by
+    date_type = options.date_type
 
     df = pd.read_csv(infile, header = 0, sep = "\t")
-    parsed_df = df[["sample_accession", "country", "collection_date", "scientific_name", "taxonomic_classification"]]
+    parsed_df = df[["sample_accession", "country", "collection_date", "last_updated", "scientific_name", "taxonomic_classification"]]
     del df
     
-    parsed_df['collection_date'] = pd.to_datetime(parsed_df['collection_date'])
-
     if downsample != None:
-        downsample_df =  pd.read_csv(downsample, header = False, sep = "\t")
+        downsample_df =  pd.read_csv(downsample, header = None, sep = "\t")
         downsample_df.columns = ['sample_accession']
 
         parsed_df = parsed_df.merge(downsample_df, how="inner", on=["sample_accession"])
 
+    #print(parsed_df)
+
+    if split_by != "none":
+        parsed_df[date_type] = pd.to_datetime(parsed_df[date_type], errors='coerce')
+        parsed_df = parsed_df.dropna(subset=[date_type])
+
+    #print(parsed_df[date_type])
+
     if split_by == "year":
-        parsed_df['parsed_date'] = parsed_df['date'].dt.year
+        parsed_df['parsed_date'] = parsed_df[date_type].dt.year
     elif split_by == "month":
-        parsed_df['parsed_date'] = parsed_df['date'].dt.to_period('M')
+        parsed_df['parsed_date'] = parsed_df[date_type].dt.to_period('M')
     elif split_by == "day":
-        parsed_df['parsed_date'] = parsed_df['date'].dt.date
+        parsed_df['parsed_date'] = parsed_df[date_type].dt.date
 
     if split_by != "none":
         for date, group in parsed_df.groupby('parsed_date'):
