@@ -124,7 +124,7 @@ def main():
     del query_set_dict
     del db_set_dict
 
-    with open(outpref + "_indentical_matches.txt", "w") as o1:
+    with open(outpref + "_identical_matches.txt", "w") as o1:
         o1.write("Query\tDatabase\tQuery_set_length\tDB_set_length\tIntersection_query\tIntersection_db\n")
         for query_key, db_key, query_set_length, db_set_length, intersection_prop_query, intersection_prop_db in identical_sets:
             o1.write(query_key + "\t" + db_key + "\t" + str(query_set_length) + "\t" + str(db_set_length) + "\t" + str(intersection_prop_query) + "\t" + str(intersection_prop_db) + "\n")

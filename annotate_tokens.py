@@ -1,6 +1,7 @@
 from Bio import SeqIO
 import argparse
 import pickle
+from tokenise_clusters import generate_gene_id
 
 def get_options():
     description = "Annotates tokenised gene clusters"
@@ -38,7 +39,7 @@ def main():
         for line in f:
             split_line = line.rstrip().split("\t")
             name = split_line[0]
-            parsed_name = name[3:].replace(".contig", "_")
+            parsed_name = generate_gene_id(name)
         
             annotation_dict[parsed_name] = split_line
 
@@ -52,6 +53,8 @@ def main():
         for token, name in reps_dict.items():
             annotation = annotation_dict[name]
             annotation_joined = "\t".join(annotation)
+            #print(f"{token}, {name}")
+            #print(f"{annotation_joined}")
 
             o.write("{}\t{}\t{}\n".format(str(name), str(token), annotation_joined))
 
