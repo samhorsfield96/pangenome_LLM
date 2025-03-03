@@ -8,7 +8,7 @@ from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-import seaborn as sns
+import matplotlib.cm as cm
 
 def get_options():
     description = "Merges clusters from batched mmseqs2 runs."
@@ -58,8 +58,6 @@ def main():
                     if split_line[0] in labels_dict:
                         labels_dict[split_line[0]] = split_line[1]
 
-    # update df with sample and cluster IDs
-    #sample_list = [x for x in labels_dict.keys()]
     
     # read embeddings
     print("Reading embeddings...")
@@ -74,21 +72,35 @@ def main():
     UMAP_embedding = reducer.fit_transform(scaled_data)
 
     cluster_list = [x for x in labels_dict.values()]
+    sample_list = [x for x in labels_dict.keys()]
+    #norm_cluster = np.array(cluster_list) / max(cluster_list)
+
+    UMAP_embedding_df = pd.DataFrame(UMAP_embedding)
+    UMAP_embedding_df.insert(loc=0, column='Cluster', value=cluster_list)
+    UMAP_embedding_df.insert(loc=0, column='Sample', value=sample_list)
+
+    UMAP_embedding_df.columns = ['Sample', 'Cluster', 'UMAP1', 'UMAP2']
+    UMAP_embedding_df.to_csv(outpref + '.csv', index=False)
 
     print("Plotting UMAP...")
-    if labels and cluster_list[0] != None:
+    if labels != None and cluster_list[0] != None:
+        unique_strings = list(set(cluster_list))
+        string_to_int = {s: i for i, s in enumerate(unique_strings)}
+        normalized_values = np.array([string_to_int[s] for s in cluster_list]) / (len(unique_strings) - 1)
+        cmap = cm.get_cmap("cubehelix")
+        
         plt.scatter(
         UMAP_embedding[:, 0],
         UMAP_embedding[:, 1],
-        c=[sns.color_palette()[int(x)] for x in cluster_list])
+        c=normalized_values,
+        cmap=cmap)
         plt.gca().set_aspect('equal', 'datalim')
-        plt.legend()
+        
     else:
         plt.scatter(
         UMAP_embedding[:, 0],
         UMAP_embedding[:, 1])
         plt.gca().set_aspect('equal', 'datalim')
-        plt.legend()
 
     print("Saving file...")
     plt.savefig(outpref + ".png", dpi=300, bbox_inches="tight")
