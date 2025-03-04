@@ -50,8 +50,10 @@ def main():
                 if not line:
                     break
                 
-                genome_id = os.path.splitext(line.rstrip().split("\t")[0])[0]
+                genome_id = os.path.splitext(line.rstrip().split("\t")[0])[0].split(".")[0]
                 genome_set.add(genome_id)
+
+    #print(genome_set)
 
     if train_size <= 0.0:
         print("Sum of --val-size and --test-size cannot be more than 1.0")
