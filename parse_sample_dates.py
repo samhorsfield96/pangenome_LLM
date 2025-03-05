@@ -1,13 +1,18 @@
 import argparse
 import pandas as pd
+import numpy as np
 
 def parse_dates(date_str):
-    if len(date_str) == 4:  # Only year
-        return date_str + '-01-01'
-    elif len(date_str) == 7:  # Year and month
-        return date_str + '-01'
-    else:
-        return date_str
+    print(date_str)
+    try:
+        if len(date_str) == 4:  # Only year
+            return date_str + '-01-01'
+        elif len(date_str) == 7:  # Year and month
+            return date_str + '-01'
+        else:
+            return date_str
+    except Exception:
+        return np.nan  # Handle invalid cases
 
 def get_options():
     """
@@ -35,12 +40,12 @@ def main():
     split_by = options.split_by
     date_type = options.date_type
 
-    df = pd.read_csv(infile, header = 0, sep = "\t")
+    df = pd.read_csv(infile, header = 0, sep = "\t", dtype=str)
     parsed_df = df[["sample_accession", "country", "collection_date", "last_updated", "scientific_name", "taxonomic_classification"]]
     del df
     
     if downsample != None:
-        downsample_df =  pd.read_csv(downsample, header = None, sep = "\t")
+        downsample_df = pd.read_csv(downsample, header = None, sep = "\t")
         downsample_df.columns = ['sample_accession']
 
         parsed_df = parsed_df.merge(downsample_df, how="inner", on=["sample_accession"])
