@@ -63,9 +63,11 @@ def main():
 
     if split_by != "none":
         for date, group in parsed_df.groupby('parsed_date'):
-            group.to_csv(f'{outpref}_{date}.tsv', index=False)
+            group.to_csv(f'{outpref}_{date}.tsv', index=False, sep='\t')
+            group['sample_accession'].to_csv(f'{outpref}_sampleID_{date}.tsv', index=False, header=False, sep='\t')
     else:
-        parsed_df.to_csv(f'{outpref}_all.tsv', sep='\t')
+        parsed_df.to_csv(f'{outpref}_all.tsv', index=False, sep='\t')
+        parsed_df['sample_accession'].to_csv(f'{outpref}_sampleID.tsv', index=False, header=False, sep='\t')
 
 
 if __name__ == "__main__":
