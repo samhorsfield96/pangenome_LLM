@@ -1,6 +1,14 @@
 import argparse
 import pandas as pd
 
+def parse_dates(date_str):
+    if len(date_str) == 4:  # Only year
+        return date_str + '-01-01'
+    elif len(date_str) == 7:  # Year and month
+        return date_str + '-01'
+    else:
+        return date_str
+
 def get_options():
     """
     Parse command-line arguments.
@@ -40,6 +48,7 @@ def main():
     #print(parsed_df)
 
     if split_by != "none":
+        parsed_df[date_type] = parsed_df[date_type].apply(parse_dates)
         parsed_df[date_type] = pd.to_datetime(parsed_df[date_type], errors='coerce')
         parsed_df = parsed_df.dropna(subset=[date_type])
 
