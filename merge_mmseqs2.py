@@ -63,9 +63,10 @@ def main():
                         cluster_to_rep[rep] = set()
                         cluster_to_rep[rep].add(rep)
 
-                    # if sequence is in rep_to_cluster, means it has been 
+                    # if sequence is in cluster_to_rep, means it has been 
                     # clustered with a new represenative
-                    if seq in rep_to_cluster and seq != rep:
+                    if seq in cluster_to_rep and seq != rep:
+
                         # update old reps
                         reps_set = cluster_to_rep[seq]
 
@@ -88,6 +89,21 @@ def main():
 
         with open(outpref + '.pkl', 'wb') as handle:
             pickle.dump(output_dicts, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # check results are correct
+        print("Missing final centroids: ")
+        with open(rep_files[-1], "r") as f:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+
+                split_line = line.rstrip().split("\t")
+                rep = split_line[0]
+                seq = split_line[1]
+
+                if rep not in cluster_to_rep:
+                    print(rep)
     
     else:
         # read in cluster file
