@@ -1,6 +1,7 @@
 
 import argparse
 import umap
+import umap.plot
 import pandas as pd
 from collections import OrderedDict
 import numpy as np
@@ -65,11 +66,11 @@ def main():
     #df.insert(loc=0, column='Cluster', value=cluster_list)
     #df.insert(loc=0, column='Sample', value=sample_list)
     
-    reducer = umap.UMAP()
-    scaled_data = StandardScaler().fit_transform(df)
+    reducer = umap.UMAP(random_state=42)
 
     print("Generating UMAP...")
-    UMAP_embedding = reducer.fit_transform(scaled_data)
+    mapper = reducer.fit(df)
+    UMAP_embedding = reducer.transform(df)
 
     cluster_list = [x for x in labels_dict.values()]
     sample_list = [x for x in labels_dict.keys()]
@@ -84,23 +85,27 @@ def main():
 
     print("Plotting UMAP...")
     if labels != None and cluster_list[0] != None:
-        unique_strings = list(set(cluster_list))
-        string_to_int = {s: i for i, s in enumerate(unique_strings)}
-        normalized_values = np.array([string_to_int[s] for s in cluster_list]) / (len(unique_strings) - 1)
-        cmap = cm.get_cmap("cubehelix")
+        # unique_strings = list(set(cluster_list))
+        # string_to_int = {s: i for i, s in enumerate(unique_strings)}
+        # normalized_values = np.array([string_to_int[s] for s in cluster_list]) / (len(unique_strings) - 1)
+        # cmap = cm.get_cmap("cubehelix")
         
-        plt.scatter(
-        UMAP_embedding[:, 0],
-        UMAP_embedding[:, 1],
-        c=normalized_values,
-        cmap=cmap)
-        plt.gca().set_aspect('equal', 'datalim')
+        p = umap.plot.points(mapper, labels=UMAP_embedding_df['Cluster'], theme='fire')
+
+        # plt.scatter(
+        # UMAP_embedding[:, 0],
+        # UMAP_embedding[:, 1],
+        # c=normalized_values,
+        # cmap=cmap)
+        # plt.gca().set_aspect('equal', 'datalim')
         
     else:
-        plt.scatter(
-        UMAP_embedding[:, 0],
-        UMAP_embedding[:, 1])
-        plt.gca().set_aspect('equal', 'datalim')
+        # plt.scatter(
+        # UMAP_embedding[:, 0],
+        # UMAP_embedding[:, 1])
+        # plt.gca().set_aspect('equal', 'datalim')
+
+        p = umap.plot.points(mapper)
 
     print("Saving file...")
     plt.savefig(outpref + ".png", dpi=300, bbox_inches="tight")
