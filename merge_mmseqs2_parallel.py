@@ -10,7 +10,7 @@ def get_options():
     parser = argparse.ArgumentParser(description=description,
                                         prog='python merge_mmseqs.py')
     IO = parser.add_argument_group('Input/options.out')
-    IO.add_argument('--outpref',
+    IO.add_argument('--outfile',
                     default="clusters.tsv",
                     help='Output filename. Default = "clusters.tsv"')
     IO.add_argument('--indir',
@@ -147,7 +147,7 @@ def main():
     rep_files = natsorted(rep_files)
 
     if clusters == None:
-        merge_mmseqs(rep_files, final_clusters, outfile)
+        merge_mmseqs2(rep_files, final_clusters, outfile)
     else:
         write_mmseqs2_clusters(rep_files, outfile, clusters)
 
