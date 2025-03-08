@@ -49,13 +49,16 @@ def merge_mmseqs2(rep_files, final_cluster, clusters):
                     rep_to_cluster[rep] = rep
                     cluster_to_rep[rep] = set()
                     cluster_to_rep[rep].add(rep)
+                # else:
+                #     print(f"Error: {rep} already in rep_to_cluster.")
+                #     print(f"rep_to_cluster[{rep}]: {rep_to_cluster[rep]}")
 
                 # if sequence is in cluster_to_rep, means it has been 
                 # clustered with a new represenative
-                if seq in cluster_to_rep and seq != rep:
-                    print(f"Error: {seq} already in cluster_to_rep.")
-                    print(f"cluster_to_rep[{seq}]: ")
-                    print(cluster_to_rep[seq])
+                # if seq in cluster_to_rep and seq != rep:
+                #     if seq != cluster_to_rep[seq]:
+                #         print(f"Error: {seq} already in cluster_to_rep.")
+                #         print(f"cluster_to_rep[{seq}]: {cluster_to_rep[seq]}")
 
         print("Finished: {}".format(rep_file))
 
