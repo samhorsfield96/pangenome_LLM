@@ -4,6 +4,7 @@ from pathlib import Path
 from natsort import natsorted
 import pickle
 import os
+import sys
 
 def get_options():
     description = "Merges clusters from batched mmseqs2 runs."
@@ -26,8 +27,6 @@ def get_options():
 
 def merge_mmseqs2(rep_files, final_cluster, clusters):
     # sort based on batch number
-    rep_files = natsorted(rep_files)
-
     # fastas are hierarchically clustered, so need to extract the representatives in each file
     # iteratively and then determine which cluster they form in the next file
     rep_to_cluster = {}
@@ -100,9 +99,6 @@ def merge_mmseqs2(rep_files, final_cluster, clusters):
         pickle.dump(output_dicts, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 def write_mmseqs2_clusters(rep_files, outfile, clusters):
-    # sort based on batch number
-    rep_files = natsorted(rep_files)
-
     # read in cluster file
     with open(clusters, 'rb') as handle:
         output_dicts = pickle.load(handle)
@@ -146,8 +142,11 @@ def main():
         rep_files.append(path)
 
     # sort based on batch number, remove final file
-    rep_files = [file for file in rep_files if file != final_clusters]
+    rep_files = [file for file in rep_files if str(file) != final_clusters]
     rep_files = natsorted(rep_files)
+    print("Files to process: ")
+    for file in rep_files:
+        print(file)
 
     if clusters == None:
         merge_mmseqs2(rep_files, final_clusters, outfile)
