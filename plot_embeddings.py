@@ -63,6 +63,10 @@ def main():
     # read embeddings
     print("Reading embeddings...")
     df = pd.read_csv(embeddings, header=None)
+    #print(df)
+    genome_IDs = df[0].to_list()
+    df = df.drop([0], axis=1)
+    #print(genome_IDs)
     #df.insert(loc=0, column='Cluster', value=cluster_list)
     #df.insert(loc=0, column='Sample', value=sample_list)
     
@@ -72,8 +76,11 @@ def main():
     mapper = reducer.fit(df)
     UMAP_embedding = reducer.transform(df)
 
-    cluster_list = [x for x in labels_dict.values()]
-    sample_list = [x for x in labels_dict.keys()]
+    # get metadata, ensuring in same order as files passed
+    sample_list = [x for x in genome_IDs if x in labels_dict]
+    cluster_list = [labels_dict[x] for x in genome_IDs if x in labels_dict]
+    #print(cluster_list)
+    #print(sample_list)
     #norm_cluster = np.array(cluster_list) / max(cluster_list)
 
     UMAP_embedding_df = pd.DataFrame(UMAP_embedding)
