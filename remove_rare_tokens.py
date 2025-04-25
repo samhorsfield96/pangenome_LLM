@@ -23,12 +23,12 @@ def main():
     args = parse_args()
     min_count = args.min
     infile = args.infile
-    tokens_path = args.tokens
+    counts = args.counts
     outpref = args.outpref
 
     gene_presence_total = Counter()
-    if tokens_path != None:
-        gene_presence_total = pickle.load(tokens_path)
+    if counts != None:
+        gene_presence_total = pickle.load(counts)
     else:
         total_gene_count = 0
         genome_count = 0
@@ -71,6 +71,7 @@ def main():
     # generate tokens that are below minimum, assigning count plus the max_gene_ID to generate new token
     below_min_dict = {gene_ID:max_gene_ID + count for gene_ID, count in gene_presence_total.items() if count <= min_count}
 
+    all_token_set = set()
     with open(infile, "r") as f1, open(outpref + ".txt", "w") as f2:
         while True:
             line = f1.readline()
@@ -91,14 +92,20 @@ def main():
                 token_to_add = gene
                 if gene != "_":
                     gene_ID = abs(int(gene))
-                    if gene_ID in below_min_set:
-                        token_to_add = below_min_dict[gene_ID]
+                    if gene_ID in below_min_dict:
+                        token_to_add = str(below_min_dict[gene_ID])
                 full_line.append(token_to_add)
             
+            all_token_set.update(full_line)
+
             if name != None:
-                f2.write(name + "\t" + " ".join(full_line) + "\n")
+                f2.write(name + "\t" + " ".join([str(x) for x in full_line]) + "\n")
             else:
-                f2.write(" ".join(full_line) + "\n")
+                f2.write(" ".join([str(x) for x in full_line]) + "\n")
+
+    # get total tokens
+    all_token_set = set([x if x == "_" else abs(int(x)) for x in all_token_set])
+    print(f"Total unique tokens = {(len(all_token_set) * 2) - 1 }")
 
 if __name__ == "__main__":
     main()
