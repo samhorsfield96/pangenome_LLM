@@ -11,6 +11,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(description="Assign blanket token to genes with specific count.")
     parser.add_argument("--min", type=int, default=1, help="Minimum count of token to be included. Values equal or below will be replaced")
+    parser.add_argument("--min_perc", type=float, default=None, help="Minimum frequency (as a percentage) of token to be included. Will overwrite --min if used.")
     parser.add_argument("--infile", required=True, help="Input file.")
     parser.add_argument("--counts", default=None, help="Path to counts generated from previous run, used for updating of existing genomes.")
     parser.add_argument("--outpref", type=str, default="genomes", help="Output prefix. Default = genomes")
@@ -22,6 +23,7 @@ def parse_args():
 def main():
     args = parse_args()
     min_count = args.min
+    min_perc = args.min_perc
     infile = args.infile
     counts = args.counts
     outpref = args.outpref
@@ -64,9 +66,13 @@ def main():
         with open(outpref + "_tokens.pkl", "wb") as f:
             pickle.dump(gene_presence_total, f)
 
+    if min_perc != None:
+        total_freq = max([entry for key, entry in gene_presence_total.items()])
+
+        min_count = total_freq * (min_perc / 100)
 
     # get maximum gene_ID
-    max_gene_ID = max(gene_presence_total.keys())
+    #max_gene_ID = max(gene_presence_total.keys())
 
     # generate tokens that are below minimum, assigning count plus the max_gene_ID to generate new token
     below_min_dict = {gene_ID:max_gene_ID + count for gene_ID, count in gene_presence_total.items() if count <= min_count}
@@ -91,9 +97,10 @@ def main():
             for gene in split_line:
                 token_to_add = gene
                 if gene != "_":
+                    gene_reversed = True if int(gene) < 0 else False
                     gene_ID = abs(int(gene))
                     if gene_ID in below_min_dict:
-                        token_to_add = str(below_min_dict[gene_ID])
+                        token_to_add = str(below_min_dict[gene_ID] * (-1 if gene_reversed == True else 1))
                 full_line.append(token_to_add)
             
             all_token_set.update(full_line)
@@ -105,7 +112,10 @@ def main():
 
     # get total tokens
     all_token_set = set([x if x == "_" else abs(int(x)) for x in all_token_set])
-    print(f"Total unique tokens = {(len(all_token_set) * 2) - 1 }")
+    print(f"Min count = {min_count}, Total unique tokens = {(len(all_token_set) * 2) - 1 }")
+
+    with open(outpref + "_below_min_dict.pkl", "wb") as f:
+        pickle.dump(below_min_dict, f)
 
 if __name__ == "__main__":
     main()

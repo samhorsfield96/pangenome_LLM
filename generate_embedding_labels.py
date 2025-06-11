@@ -13,6 +13,9 @@ def get_options():
     IO.add_argument('--new_labels',
                     required=True,
                     help='csv file describing genome names not in model training in first column.')
+    IO.add_argument('--pretraining_labels',
+                    default=None,
+                    help='csv file describing genome names used in pretraining of model. Optional.')
     IO.add_argument('--clusters',
                     default=None,
                     help='PopPUNK clusters.csv file. Can be provided in addition to labels if no second column')
@@ -25,6 +28,7 @@ def main():
     options = get_options()
     original_labels = options.original_labels
     new_labels = options.new_labels
+    pretraining_labels = options.pretraining_labels
     outpref = options.outpref
     clusters = options.clusters
 
@@ -32,15 +36,22 @@ def main():
     # 1 = training genome
     # 2 = new genome matching strain found in training
     # 3 = new genome not matching training strain
+    # 4 = pretraining genome
 
     labels_dict = OrderedDict()
     original_clusters = set()
     known_isolates = set()
     print("Reading original labels...")
     with open(original_labels, "r") as i1:
+        # account for input being PopPUNK file
+        skipped_header = False
         for line in i1:
             split_line = line.rstrip().split(",")
             if len(split_line) >= 2:
+                if skipped_header == False:
+                    # PopPUNK file, skip header
+                    skipped_header = True
+                    continue
                 labels_dict[split_line[0]] = (split_line[1], 1)
                 original_clusters.add(split_line[1])
             else:
@@ -62,12 +73,18 @@ def main():
     print("Reading new labels...")
     new_genomes = set()
     with open(new_labels, "r") as i1:
+        # account for input being PopPUNK file
+        skipped_header = False
         for line in i1:
             split_line = line.rstrip().split(",")
 
             # if already observed, ignore
             if split_line[0] not in labels_dict:
                 if len(split_line) >= 2:
+                    if skipped_header == False:
+                        # PopPUNK file, skip header
+                        skipped_header = True
+                        continue
                     if split_line[1] in original_clusters:
                         labels_dict[split_line[0]] = (split_line[1], 2)
                     else:
@@ -92,6 +109,36 @@ def main():
                         else:
                             labels_dict[split_line[0]] = (split_line[1], 3)
     
+    pretraining_genomes = set()
+    if pretraining_labels != None:
+        # account for input being PopPUNK file
+        skipped_header = False
+        print("Reading pretraining labels...")
+        with open(pretraining_labels, "r") as i1:
+            for line in i1:
+                split_line = line.rstrip().split(",")
+                if len(split_line) >= 2:
+                    if skipped_header == False:
+                        # PopPUNK file, skip header
+                        skipped_header = True
+                        continue
+                    labels_dict[split_line[0]] = (split_line[1], 4)
+                else:
+                    labels_dict[split_line[0]] = (None, 4)
+                pretraining_genomes.add(split_line[0])
+
+            # only read clusters if labels also present
+            if clusters != None:
+                print("Reading clusters...")
+                with open(clusters, "r") as i2:
+                    # read header
+                    i2.readline()
+                    for line in i2:
+                        split_line = line.rstrip().split(",")
+                        if split_line[0] in pretraining_genomes:
+                            labels_dict[split_line[0]] = (split_line[1], 4)
+                            known_isolates.add(split_line[0])
+
     # remove isolates not part of dataset
     if len(known_isolates) > 0:
         to_remove = set()
