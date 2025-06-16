@@ -72,7 +72,7 @@ def main():
         min_count = total_freq * (min_perc / 100)
 
     # get maximum gene_ID
-    #max_gene_ID = max(gene_presence_total.keys())
+    max_gene_ID = max(gene_presence_total.keys())
 
     # generate tokens that are below minimum, assigning count plus the max_gene_ID to generate new token
     below_min_dict = {gene_ID:max_gene_ID + count for gene_ID, count in gene_presence_total.items() if count <= min_count}
