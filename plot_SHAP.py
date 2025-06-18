@@ -26,10 +26,14 @@ def main():
     min_dist = args.min_dist
 
     tokens_dict = {}
+    token_count = 0
     header = None
     with open(infile, "r") as f1:
         header = f1.readline().rstrip().split(",")[1:]
         while True:
+            # stop when all tokens found
+            if token_count == len(tokens):
+                break
             line = f1.readline()
             if not line:
                 break
@@ -45,16 +49,36 @@ def main():
                     except (ValueError, TypeError):
                         converted_line.append(0.0)
                 tokens_dict[token] = converted_line
+                token_count += 1
     
     min_dist_upper = locus + min_dist
     min_dist_lower = locus - min_dist
+    token_list = header[:-1]
+
+    # contig break locations
+    contig_breaks = [x for x in range(len(token_list)) if token_list[x] == "_"]
+    dists_to_contig_break = [x - locus for x in contig_breaks]
+    upstream_contig_break = max([x + locus for x in dists_to_contig_break if x < 0], default=0)
+    downstream_contig_break = min([x + locus for x in dists_to_contig_break if x > 0], default=len(token_list))
+
+    print(f"min_dist_lower: {min_dist_lower}")
+    print(f"min_dist_upper: {min_dist_upper}")
+    print(f"contig_breaks: {contig_breaks}")
+    print(f"upstream_contig_break: {upstream_contig_break}")
+    print(f"downstream_contig_break: {downstream_contig_break}")
+
+    # check which is closer, a contig break of the min distance cutoff
+    min_dist_lower = max(min_dist_lower, upstream_contig_break)
+    min_dist_upper = min(min_dist_upper, downstream_contig_break)
+
+    print(f"min_dist_lower: {min_dist_lower}")
+    print(f"min_dist_upper: {min_dist_upper}")
 
     # for each token, plot the change in SHAP value, ignoring locus
     for token, SHAPs_list in tokens_dict.items():
         plt.figure(figsize=(8, 6))
 
         values = np.array(SHAPs_list[:-1])
-        token_list = header[:-1]
 
         # tukey's method for outlier detection
         q1 = np.percentile(values, 25)
@@ -65,7 +89,7 @@ def main():
         upper_bound = q3 + (outlier_dev * iqr)
 
         #outliers = values[z_scores > outlier_std]
-        outlier_tokens = [(token_list[x], values[x], x) for x in range(len(token_list)) if (values[x] < lower_bound or values[x] > upper_bound) and abs(x - locus) >= min_dist]
+        outlier_tokens = [(token_list[x], values[x], x) for x in range(len(token_list)) if (values[x] < lower_bound or values[x] > upper_bound) and (x < min_dist_lower or x > min_dist_upper)]
 
         #print(token)
         #print(outlier_tokens)
@@ -77,7 +101,7 @@ def main():
         # Line plot connecting consecutive points, ignore base value
         plt.plot(token_loci, values, color='orange', linestyle='-', linewidth=1)
 
-        plt.axvline(x=locus, color='gray', linestyle='-', linewidth=2.0, label='Reference Locus')
+        plt.axvline(x=locus, color='gray', linestyle='-', linewidth=2.0)
         plt.axhline(y=0, color='black', linestyle='--', linewidth=1.0)
 
         if min_dist_upper <= len(token_list):
@@ -89,6 +113,9 @@ def main():
         plt.axhline(y=lower_bound, color='red', linestyle='--')
         plt.axhline(y=upper_bound, color='red', linestyle='--')
 
+        # add contig breaks
+        for contig_break in contig_breaks:
+            plt.axvline(x=contig_break, color='gray', linestyle='--', linewidth=0.5)
 
         # Adding labels and legend
         plt.xlabel("Gene locus")
