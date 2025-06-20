@@ -28,11 +28,12 @@ def main():
     sort_values = args.sort
 
     SHAP_df = pd.read_csv(SHAP_hits, sep=',', header=0)
-    SHAP_df['abs_tokens'] = [abs(x) if x != "_" else "_" for x in SHAP_df['Token']]
+    SHAP_df['abs_tokens'] = [x if x == "_" else str(abs(int(x))) for x in SHAP_df['Token']]
 
     annotations_df = pd.read_csv(annotations, sep='\t', header=0)
+    annotations_df['abs_tokens'] = [str(abs(int(x))) for x in annotations_df['Token']]
 
-    merged_df = SHAP_df.merge(annotations_df, left_on='abs_tokens', right_on="Token")
+    merged_df = SHAP_df.merge(annotations_df, on='abs_tokens')
 
     merged_df.drop(["Token_y", "abs_tokens"], inplace=True, axis=1)
     merged_df.rename(columns={"Token_x": "Token"}, inplace=True)
