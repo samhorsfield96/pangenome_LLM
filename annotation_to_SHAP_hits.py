@@ -43,7 +43,10 @@ def main():
         merged_df.sort_values("abs_SHAP", axis=0, ascending=False, inplace=True)
         merged_df.drop(["abs_SHAP"], inplace=True, axis=1)
 
-    merged_df.to_csv(outpref + '.tsv', sep="\t", index=False) 
+    merged_df_pos = merged_df.loc[merged_df['SHAP'] > 0]
+    merged_df_neg = merged_df.loc[merged_df['SHAP'] < 0]
+    merged_df_pos.to_csv(outpref + '_pos.tsv', sep="\t", index=False) 
+    merged_df_neg.to_csv(outpref + '_neg.tsv', sep="\t", index=False) 
             
 if __name__ == "__main__":
     main()

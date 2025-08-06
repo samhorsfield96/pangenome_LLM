@@ -95,6 +95,7 @@ def main():
 
     # for each cluster, shuffle and randomly assign to training, don't keep tally as just all remaining genomes are training
     cluster_len_dict = {}
+    train_clusters = {}
     for cluster in cluster_dict.keys():
         genome_list = cluster_dict[cluster]
         #print_on = False
@@ -127,11 +128,16 @@ def main():
         num_to_move = math.ceil(len(genome_list) * train_size)
         random.shuffle(genome_list)
 
+        # create new cluster list
+        train_clusters[cluster] = genome_list[:num_to_move]
+
         # remove genomes to new list
         cluster_dict[cluster] = genome_list[num_to_move:]
 
+
     # for each cluster, shuffle and randomly assign to validation
     val_genomes = set()
+    val_clusters = {}
     for cluster in cluster_dict.keys():
         genome_list = cluster_dict[cluster]
 
@@ -139,14 +145,22 @@ def main():
         num_to_move = math.ceil(cluster_len_dict[cluster] * val_size)
         random.shuffle(genome_list)
 
+        # create new cluster list
+        val_clusters[cluster] = genome_list[:num_to_move]
+
         # move genomes to new list
         val_genomes.update(genome_list[:num_to_move])
         cluster_dict[cluster] = genome_list[num_to_move:]
+
     
     # for remaining genomes are for testing
     test_genomes = set()
+    test_clusters = {}
     for cluster, genome_list in cluster_dict.items():
         test_genomes.update(genome_list)
+
+        # create new cluster list
+        test_clusters[cluster] = genome_list
 
     # sample genomes from input file
     with open(outpref + "_train_genomes.txt", 'w') as o_train, open(outpref + "_val_genomes.txt", 'w') as o_val, open(outpref + "_test_genomes.txt", 'w') as o_test:
@@ -164,6 +178,25 @@ def main():
                     o_val.write(line)
                 else:
                     o_train.write(line)
+    
+    # write clusters out
+    with open(outpref + "_train_clusters.txt", 'w') as o_train, open(outpref + "_val_clusters.txt", 'w') as o_val, open(outpref + "_test_clusters.txt", 'w') as o_test:
+        header = "Taxon,Cluster\n"
+        o_train.write(header)
+        o_test.write(header)
+        o_val.write(header)
+
+        for cluster, genome_list in train_clusters.items():
+            for genome in genome_list:
+                o_train.write(f"{genome},{cluster}\n")
+        
+        for cluster, genome_list in val_clusters.items():
+            for genome in genome_list:
+                o_val.write(f"{genome},{cluster}\n")
+        
+        for cluster, genome_list in test_clusters.items():
+            for genome in genome_list:
+                o_test.write(f"{genome},{cluster}\n")
                 
 if __name__ == "__main__":
     main()
