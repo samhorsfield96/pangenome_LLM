@@ -10,7 +10,7 @@ from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import os
 
 def get_options():
@@ -38,7 +38,6 @@ def main():
     embeddings = options.embeddings
     labels = options.labels
     outpref = options.outpref
-    clusters = options.clusters
 
     labels_dict = OrderedDict()
     if labels != None:
@@ -47,24 +46,22 @@ def main():
             i1.readline()
             for line in i1:
                 split_line = line.rstrip().split(",")
-                if len(split_line) >= 2:
-                    labels_dict[split_line[0]] = split_line[1]
-                else:
-                    labels_dict[split_line[0]] = "NA"
+                labels_dict[split_line[0]] = split_line[1]
 
-    if args.max_labels != None:
-        all_labels = chain.from_iterable(labels_dict.values())
-        counter = Counter(all_elements)
+        if options.max_labels != None:
+            counter = Counter([x for x in labels_dict.values()])
+            #print(counter)
 
-        # Get the top entries
-        top_labels = {item for item, _ in counter.most_common(args.max_labels)}
+            # Get the top entries
+            top_labels = set([item for item, _ in counter.most_common(options.max_labels)])
 
-        filtered_data = {
-            key: [val if val in top_labels else "NA" for val in vals]
-            for key, vals in labels_dict.items()
-        }
+            filtered_data = OrderedDict()
+            for key, val in labels_dict.items():
+                filtered_data[key] = 0 if val not in top_labels else int(val)
 
-        labels_dict = filtered_data
+            labels_dict = filtered_data
+            #print(labels_dict)
+            #print(top_labels)
         
     # read embeddings
     print("Reading embeddings...")
@@ -74,6 +71,11 @@ def main():
     # parse genome ids and remove file extensions
     genome_IDs = df[0].to_list()
     genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in genome_IDs]
+
+    # if no labels present, all points same colour
+    if labels == None:
+        for genome_ID in genome_IDs:
+            labels_dict[genome_ID] = 0
 
     df = df.drop([0], axis=1)
     #print(genome_IDs)
@@ -86,46 +88,43 @@ def main():
     mapper = reducer.fit(df)
     UMAP_embedding = reducer.transform(df)
 
+    p = umap.plot.connectivity(mapper, show_points=True)
+    plt.savefig(outpref + "_connectivity.png", dpi=300, bbox_inches="tight")
+    plt.close()
+
     # get metadata, ensuring in same order as files passed
     sample_list = [x for x in genome_IDs if x in labels_dict]
     cluster_list = [labels_dict[x] for x in genome_IDs if x in labels_dict]
-    #print(cluster_list)
-    #print(sample_list)
-    #norm_cluster = np.array(cluster_list) / max(cluster_list)
 
     UMAP_embedding_df = pd.DataFrame(UMAP_embedding)
     UMAP_embedding_df.insert(loc=0, column='Cluster', value=cluster_list)
     UMAP_embedding_df.insert(loc=0, column='Sample', value=sample_list)
 
     UMAP_embedding_df.columns = ['Sample', 'Cluster', 'UMAP1', 'UMAP2']
-    UMAP_embedding_df.to_csv(outpref + '.csv', index=False)
+    UMAP_embedding_df.to_csv(outpref + '_UMAP.csv', index=False)
 
     print("Plotting UMAP...")
-    if labels != None and cluster_list[0] != None:
-        # unique_strings = list(set(cluster_list))
-        # string_to_int = {s: i for i, s in enumerate(unique_strings)}
-        # normalized_values = np.array([string_to_int[s] for s in cluster_list]) / (len(unique_strings) - 1)
-        # cmap = cm.get_cmap("cubehelix")
-        
-        p = umap.plot.points(mapper, labels=UMAP_embedding_df['Cluster'], theme='fire')
+    
+    # set colour scheme
+    unique_labels = list(set(cluster_list))
+    cmap = plt.colormaps["gist_rainbow"]
+    # Assign colors: 0 -> grey, others follow the theme sequence
+    color_key = {}
+    color_key[0] = "#808080"
 
-        # plt.scatter(
-        # UMAP_embedding[:, 0],
-        # UMAP_embedding[:, 1],
-        # c=normalized_values,
-        # cmap=cmap)
-        # plt.gca().set_aspect('equal', 'datalim')
-        
-    else:
-        # plt.scatter(
-        # UMAP_embedding[:, 0],
-        # UMAP_embedding[:, 1])
-        # plt.gca().set_aspect('equal', 'datalim')
+    # Assign colors for all labels except 0
+    n_colours = len(unique_labels) - 1
+    for idx, lbl in enumerate([l for l in unique_labels if l != 0]):
+        frac = idx / max(1, n_colours - 1)
+        rgba = cmap(frac)          # (r,g,b,a)
+        hexcol = mcolors.to_hex(rgba[:3])   # drop alpha -> hex like '#aabbcc'
+        color_key[lbl] = hexcol   
 
-        p = umap.plot.points(mapper)
+    p = umap.plot.points(mapper, labels=UMAP_embedding_df['Cluster'], color_key=color_key, background="black")        
 
     print("Saving file...")
-    plt.savefig(outpref + ".png", dpi=300, bbox_inches="tight")
+    plt.savefig(outpref + "_UMAP.png", dpi=300, bbox_inches="tight")
+    plt.close()
 
 if __name__ == "__main__":
     main()
