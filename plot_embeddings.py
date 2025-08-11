@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_samples
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import os
@@ -40,6 +41,7 @@ def main():
     outpref = options.outpref
 
     labels_dict = OrderedDict()
+    original_labels_dict =  OrderedDict()
     if labels != None:
         print("Reading labels...")
         with open(labels, "r") as i1:
@@ -47,6 +49,7 @@ def main():
             for line in i1:
                 split_line = line.rstrip().split(",")
                 labels_dict[split_line[0]] = split_line[1]
+                original_labels_dict[split_line[0]] = int(split_line[1])
 
         if options.max_labels != None:
             counter = Counter([x for x in labels_dict.values()])
@@ -72,12 +75,9 @@ def main():
     genome_IDs = df[0].to_list()
     genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in genome_IDs]
 
-    # if no labels present, all points same colour
-    if labels == None:
-        for genome_ID in genome_IDs:
-            labels_dict[genome_ID] = 0
-
+    # get just embeddings
     df = df.drop([0], axis=1)
+
     #print(genome_IDs)
     #df.insert(loc=0, column='Cluster', value=cluster_list)
     #df.insert(loc=0, column='Sample', value=sample_list)
@@ -92,9 +92,50 @@ def main():
     plt.savefig(outpref + "_connectivity.png", dpi=300, bbox_inches="tight")
     plt.close()
 
-    # get metadata, ensuring in same order as files passed
-    sample_list = [x for x in genome_IDs if x in labels_dict]
-    cluster_list = [labels_dict[x] for x in genome_IDs if x in labels_dict]
+    # if no labels present, all points same colour
+    if labels == None:
+        sample_list = [x for x in genome_IDs]
+        cluster_list = [0 for x in genome_IDs]
+        
+    else:
+        # get metadata, ensuring in same order as files passed
+        sample_list = [x for x in genome_IDs if x in labels_dict]
+        cluster_list = [labels_dict[x] for x in genome_IDs if x in labels_dict]
+
+        # get all original clusters
+        original_cluster_list = [original_labels_dict[x] for x in genome_IDs if x in original_labels_dict]
+
+        # calculate silhouette score per label for all values
+        silhouette_vals = silhouette_samples(df, original_cluster_list)
+
+        # convert to numpy arrays for easy indexing
+        cluster_array = np.array(original_cluster_list)
+        silhouette_vals = np.array(silhouette_vals)
+
+        unique_labels = np.unique(cluster_array)
+
+        silhouette_per_label = []
+        for label in unique_labels:
+            idx = cluster_array == label
+            label_count = np.sum(idx)
+            # Select silhouette scores where cluster is `label`
+            silhouette_per_label.append({
+                'Label': label,
+                'Silhouette_width': silhouette_vals[idx].mean(),
+                'Count': label_count
+            })
+
+        silhouette_mean = silhouette_vals.mean()
+        silhouette_per_label.append({
+            'Label': "overall",
+            'Silhouette_width': silhouette_mean,
+            'Count' : len(original_cluster_list)
+        })
+        
+        silhouette_per_label_df = pd.DataFrame(silhouette_per_label)
+
+        # Save to TSV
+        silhouette_per_label_df.to_csv(outpref + "_silhouette.tsv", sep='\t', index=False)
 
     UMAP_embedding_df = pd.DataFrame(UMAP_embedding)
     UMAP_embedding_df.insert(loc=0, column='Cluster', value=cluster_list)
@@ -107,7 +148,7 @@ def main():
     
     # set colour scheme
     unique_labels = list(set(cluster_list))
-    cmap = plt.colormaps["gist_rainbow"]
+    cmap = plt.colormaps["rainbow"]
     # Assign colors: 0 -> grey, others follow the theme sequence
     color_key = {}
     color_key[0] = "#808080"
