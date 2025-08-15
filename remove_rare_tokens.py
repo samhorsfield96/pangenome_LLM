@@ -125,8 +125,11 @@ def update_old(args):
     below_min_dict_file = args.below_min_dict
 
     # read in previous assignments
-    below_min_dict = pickle.load(below_min_dict_file)
-    gene_presence_total =  pickle.load(counts)
+    with open(below_min_dict_file, "rb") as input_file:
+        below_min_dict = pickle.load(input_file)
+
+    with open(counts, "rb") as input_file:
+        gene_presence_total = pickle.load(input_file)
 
     all_token_set = set()
     with open(infile, "r") as f1, open(outpref + ".txt", "w") as f2:
