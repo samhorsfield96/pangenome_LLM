@@ -60,7 +60,7 @@ def main():
 
             filtered_data = OrderedDict()
             for key, val in labels_dict.items():
-                filtered_data[key] = 0 if val not in top_labels else int(val)
+                filtered_data[key] = "0" if val not in top_labels else int(val)
 
             labels_dict = filtered_data
             #print(labels_dict)
@@ -95,7 +95,7 @@ def main():
     # if no labels present, all points same colour
     if labels == None:
         sample_list = [x for x in genome_IDs]
-        cluster_list = [0 for x in genome_IDs]
+        cluster_list = ["0" for x in genome_IDs]
         
     else:
         # get metadata, ensuring in same order as files passed
@@ -151,15 +151,17 @@ def main():
     cmap = plt.colormaps["rainbow"]
     # Assign colors: 0 -> grey, others follow the theme sequence
     color_key = {}
-    color_key[0] = "#808080"
+    color_key["0"] = "#808080"
 
     # Assign colors for all labels except 0
     n_colours = len(unique_labels) - 1
-    for idx, lbl in enumerate([l for l in unique_labels if l != 0]):
+    for idx, lbl in enumerate([l for l in unique_labels if l != "0"]):
         frac = idx / max(1, n_colours - 1)
         rgba = cmap(frac)          # (r,g,b,a)
         hexcol = mcolors.to_hex(rgba[:3])   # drop alpha -> hex like '#aabbcc'
         color_key[lbl] = hexcol   
+
+    print(f"Colour key:\n{color_key}")
 
     p = umap.plot.points(mapper, labels=UMAP_embedding_df['Cluster'], color_key=color_key, background="black")        
 
