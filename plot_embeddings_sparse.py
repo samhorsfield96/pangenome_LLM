@@ -18,8 +18,7 @@ import matplotlib.colors as mcolors
 import os
 
 def remove_coo(M: coo_matrix, to_remove):
-    rows_to_remove = np.array(rows_to_remove)
-    cols_to_remove = np.array(cols_to_remove)
+    to_remove = np.array(to_remove)
 
     # Rows/cols to keep
     rows_to_keep = np.setdiff1d(np.arange(M.shape[0]), to_remove)
@@ -44,9 +43,9 @@ def remove_coo(M: coo_matrix, to_remove):
     )
 
 def get_options():
-    description = "Merges clusters from batched mmseqs2 runs."
+    description = "Plots UMAP of ppsketchlib distances"
     parser = argparse.ArgumentParser(description=description,
-                                        prog='python merge_mmseqs.py')
+                                        prog='python plot_embeddings_sparse.py')
     IO = parser.add_argument_group('Input/options.out')
     IO.add_argument('--distances',
                     required=True,
@@ -113,7 +112,7 @@ def main():
     # downsample genomes IDs and df
     if labels != None:
         sample_list_index = [i for i, x in enumerate(genome_IDs) if x not in labels_dict]
-        df = remove_coo(df, sample_list_index).to_csr()
+        df = remove_coo(df, sample_list_index).tocsr()
 
     reducer = umap.UMAP(random_state=42)
 
@@ -133,7 +132,7 @@ def main():
     else:
         # get metadata, ensuring in same order as files passed
         sample_list = [x for x in genome_IDs if x in labels_dict]
-        cluster_list = [labels_dict[x] for x in genome_IDs if x in labels_dict]
+        cluster_list = [str(labels_dict[x]) for x in genome_IDs if x in labels_dict]
 
         # get all original clusters
         original_cluster_list = [original_labels_dict[x] for x in genome_IDs if x in original_labels_dict]
@@ -192,7 +191,7 @@ def main():
         frac = idx / max(1, n_colours - 1)
         rgba = cmap(frac)          # (r,g,b,a)
         hexcol = mcolors.to_hex(rgba[:3])   # drop alpha -> hex like '#aabbcc'
-        color_key[lbl] = hexcol   
+        color_key[str(lbl)] = hexcol   
 
     print(f"Colour key:\n{color_key}")
 

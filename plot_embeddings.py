@@ -15,9 +15,9 @@ import matplotlib.colors as mcolors
 import os
 
 def get_options():
-    description = "Merges clusters from batched mmseqs2 runs."
+    description = "Plots UMAP of panBART embeddings."
     parser = argparse.ArgumentParser(description=description,
-                                        prog='python merge_mmseqs.py')
+                                        prog='python plot_embeddings.py')
     IO = parser.add_argument_group('Input/options.out')
     IO.add_argument('--embeddings',
                     required=True,
@@ -159,7 +159,7 @@ def main():
         frac = idx / max(1, n_colours - 1)
         rgba = cmap(frac)          # (r,g,b,a)
         hexcol = mcolors.to_hex(rgba[:3])   # drop alpha -> hex like '#aabbcc'
-        color_key[lbl] = hexcol   
+        color_key[str(lbl)] = hexcol   
 
     print(f"Colour key:\n{color_key}")
 
