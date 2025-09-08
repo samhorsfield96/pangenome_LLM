@@ -111,14 +111,16 @@ def main():
 
     # remove infintities
     df.data = np.nan_to_num(df.data, posinf=0, neginf=0).astype(np.float32)
-    
-    # If it's sparse
+   
     data = df.data
     print("NaNs:", np.isnan(data).sum())
     print("Infs:", np.isinf(data).sum())
     print("Max:", data.max(), "Min:", data.min())
 
-    reducer = umap.UMAP(random_state=42)
+    df = df.maximum(df.T)   # ensures symmetry, keeps sparsity
+    df.setdiag(0)
+
+    reducer = umap.UMAP(metric='precomputed', random_state=42)
 
     print("Generating UMAP...")
     mapper = reducer.fit(df)
