@@ -71,9 +71,6 @@ def read_distances_file(distances, samples, genome_labels):
     idx = [label_to_idx[x] for x in test_genome_IDs if x in label_to_idx]
     dist = distance_matrix[idx, :]
 
-    # convert to identities
-    dist[dist.nonzero()] = 1.0 - dist[dist.nonzero()]
-
     return dist, test_genome_IDs
 
 def get_options():
