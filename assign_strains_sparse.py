@@ -1,12 +1,9 @@
 import argparse
-import umap
-import umap.plot
 import pandas as pd
 import pickle
 import numpy as np
 import scipy as sp
 import os
-import pp_sketchlib
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_score, recall_score
 
@@ -23,8 +20,10 @@ def read_distances_file(distances, samples, genome_labels):
     with open(samples, 'rb') as f:
         genome_IDs = pickle.load(f)
 
-    genome_IDs = genome_IDs[1]
-    genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in genome_IDs]
+    test_genome_IDs = genome_IDs[1]
+    train_genome_IDs = genome_IDs[0]
+    test_genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in test_genome_IDs]
+    train_genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in train_genome_IDs]
 
     # read embeddings
     if ".npz" in distances:
@@ -34,12 +33,15 @@ def read_distances_file(distances, samples, genome_labels):
         # sample just accessory distances
         distance_matrix = long_to_square(distance_matrix[:, [1]], len(test_genome_IDs), len(train_genome_IDs))
 
-    idx = [i for i, x in enumerate(genome_IDs) if x in set(genome_labels)]
-    
-    # keep on the rows that are found in the labels
-    dist  = distance_matrix[idx]
+    # reorder
+    label_to_idx = {label: i for i, label in enumerate(genome_labels)}
+    idx = [label_to_idx[x] for x in test_genome_IDs if x in label_to_idx]
+    dist = distance_matrix[idx, :]
 
-    return dist, genome_IDs
+    # convert to identities
+    dist[dist.nonzero()] = 1.0 - dist[dist.nonzero()]
+
+    return dist, test_genome_IDs
 
 def get_options():
     description = "Assigns strains using ppsketchlib distances"
@@ -75,8 +77,8 @@ def main():
     options = get_options()
     train_distances = options.train_distances
     train_samples = options.train_samples
-    query_distances = options.train_distances
-    query_samples = options.train_samples
+    query_distances = options.query_distances
+    query_samples = options.query_samples
     train_labels = options.train_labels
     query_labels = options.query_labels
     outpref = options.outpref
@@ -104,23 +106,28 @@ def main():
 
     print("Reading distances")
     dist_train, train_genome_IDs = read_distances_file(train_distances, train_samples, train_genome_labels)
-    dist_test, test_genome_IDs = read_distances_file(query_distances, query_samples, train_genome_labels)
+    dist_test, test_genome_IDs = read_distances_file(query_distances, query_samples, query_genome_labels)
     
-    #print(f"dist_train: {dist_train}")
-    #print(f"dist_test: {dist_test}")
+    #print(f"dist_train: {dist_train.shape}")
+    #print(f"dist_test: {dist_test.shape}")
+
+    #test_diff = set(query_cluster_assignments).difference(set(train_cluster_assignments))
+    #train_diff = set(train_cluster_assignments).difference(set(query_cluster_assignments))
+    #print(test_diff)
+    #print(train_diff)
 
     y_train = np.array(train_cluster_assignments)
     y_test = np.array(query_cluster_assignments)
 
-    #print(f"y_train: {y_train}")
-    #print(f"y_test: {y_test}")
+    #print(f"y_train: {y_train.shape}")
+    #print(f"y_test: {y_test.shape}")
 
     print("Running kNN")
     n_neighbors_list = [int(k) for k in options.n_neighbors.split(",")]
     per_k_accuracy = []
     for n_neighbors in n_neighbors_list:
         try:
-            knn = KNeighborsClassifier(n_neighbors=n_neighbors, metric="precomputed", warn_when_not_sorted=False)
+            knn = KNeighborsClassifier(n_neighbors=n_neighbors, metric="precomputed")
             knn.fit(dist_train, y_train)
 
             # predict from classifier
