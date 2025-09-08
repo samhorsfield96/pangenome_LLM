@@ -100,7 +100,7 @@ def main():
         
     # read embeddings
     print("Reading distances...")
-    df = sp.sparse.load_npz(distances)
+    df = sp.sparse.load_npz(distances).tocsr()
     #print(df)
 
     # parse genome ids and remove file extensions
@@ -109,10 +109,14 @@ def main():
     genome_IDs = genome_IDs[0]
     genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in genome_IDs]
 
-    # downsample genomes IDs and df
-    if labels != None:
-        sample_list_index = [i for i, x in enumerate(genome_IDs) if x not in labels_dict]
-        df = remove_coo(df, sample_list_index).tocsr()
+    # remove infintities
+    df.data = np.nan_to_num(df.data, posinf=0, neginf=0).astype(np.float32)
+    
+    # If it's sparse
+    data = df.data
+    print("NaNs:", np.isnan(data).sum())
+    print("Infs:", np.isinf(data).sum())
+    print("Max:", data.max(), "Min:", data.min())
 
     reducer = umap.UMAP(random_state=42)
 
