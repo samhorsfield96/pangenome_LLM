@@ -48,15 +48,22 @@ def long_to_square(dist_vec, n, m):
         raise ValueError(f"dist_vec length {dist_vec.size} != n*m ({n*m})")
     return dist_vec.reshape((n, m), order="C")  # row-major
 
-def read_distances_file(distances, samples, genome_labels):
-    # parse genome ids and remove file extensions
-    with open(samples, 'rb') as f:
-        genome_IDs = pickle.load(f)
+# based on https://github.com/bacpop/PopPUNK/blob/4097473da3660a29dbb6efccc4dbaa6d1cfc8ed6/scripts/poppunk_extract_distances.py#L1
+def isolateNameToLabel(names):
+    # useful to have as a function in case we
+    # want to remove certain characters
+    labels = [os.path.splitext(os.path.basename(name))[0] for name in names]
 
-    test_genome_IDs = genome_IDs[1]
-    train_genome_IDs = genome_IDs[0]
-    test_genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in test_genome_IDs]
-    train_genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in train_genome_IDs]
+    return labels
+
+def read_distances_file(distances, samples, query_genome_labels, train_genome_labels):
+    # parse genome ids and remove file extensions
+    with open(samples, 'rb') as pickle_file:
+        rlist, qlist, self = pickle.load(pickle_file)
+
+    # get names order
+    train_genome_IDs = isolateNameToLabel(rlist)
+    test_genome_IDs = isolateNameToLabel(qlist)
 
     # read embeddings
     if ".npz" in distances:
@@ -67,9 +74,12 @@ def read_distances_file(distances, samples, genome_labels):
         distance_matrix = long_to_square(distance_matrix[:, [1]], len(test_genome_IDs), len(train_genome_IDs))
 
     # reorder
-    label_to_idx = {label: i for i, label in enumerate(genome_labels)}
-    idx = [label_to_idx[x] for x in test_genome_IDs if x in label_to_idx]
-    dist = distance_matrix[idx, :]
+    query_label_to_idx = {label: i for i, label in enumerate(query_genome_labels)}
+    query_idx = [query_label_to_idx[x] for x in test_genome_IDs if x in query_label_to_idx]
+    train_label_to_idx = {label: i for i, label in enumerate(train_genome_labels)}
+    train_idx = [train_label_to_idx[x] for x in train_genome_IDs if x in train_label_to_idx]
+
+    dist = distance_matrix[query_idx, :][:, train_idx]
 
     return dist, test_genome_IDs
 
@@ -127,8 +137,8 @@ def main():
 
 
     print("Reading distances")
-    dist_test, test_genome_IDs = read_distances_file(query_distances, query_samples, query_genome_labels)
-    
+    dist_test, test_genome_IDs = read_distances_file(query_distances, query_samples, query_genome_labels, train_genome_labels)
+
     #print(f"dist_test: {dist_test.shape}")
 
     y_train = np.array(train_cluster_assignments)
