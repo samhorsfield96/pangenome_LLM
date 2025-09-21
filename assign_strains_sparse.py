@@ -189,10 +189,10 @@ def main():
             y_pred = np.array([query_cluster_predictions[row_name] for row_name in dist_test.index])
 
             query_list_df_pred = pd.DataFrame(columns=['Taxon', 'predicted_label'])
-            query_list_df_pred['Taxon'] = query_genome_labels
+            query_list_df_pred['Taxon'] = dist_test.index.tolist()
             query_list_df_pred['predicted_label'] = y_pred
             query_list_df_pred.to_csv(options.outpref + f"_k_{n_neighbors}_predictions.tsv", sep='\t', index=False)
-           
+
             unique_labels = np.unique(y_test)
             # Per-class accuracy
             per_label_accuracy = []
