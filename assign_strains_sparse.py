@@ -116,8 +116,6 @@ def read_distances_file(distances, samples, query_genome_labels, train_genome_la
         for i, (r_index, q_index) in enumerate(listDistInts(r_names, q_names, r_names == q_names)):
             df.iat[q_index, r_index] = X[i,1]
 
-    print(df)
-
     return df, q_names
 
 def get_options():
