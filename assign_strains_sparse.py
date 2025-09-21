@@ -8,45 +8,38 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_score, recall_score
 from collections import Counter
 
-def knn_predict(dist_test, y_train, k=3):
+def knn_predict(dist_test: pd.DataFrame, y_train: dict, k: int = 3) -> pd.Series:
     """
-    Custom k-NN prediction using a precomputed distance array.
+    k-NN prediction using a distance DataFrame and dict of labels.
 
     Parameters
     ----------
-    dist_test : np.ndarray, shape (n_test, n_train)
-        Precomputed distances from each test sample to each training sample.
-    y_train : np.ndarray, shape (n_train,)
-        Labels of the training samples.
+    dist_test : pd.DataFrame
+        Rows = query samples, Columns = training samples, Values = distances.
+    y_train : dict
+        Mapping {training_name: label}.
     k : int
         Number of nearest neighbors to consider.
 
     Returns
     -------
-    y_pred : np.ndarray, shape (n_test,)
-        Predicted labels for the test samples.
+    pd.Series
+        Predicted labels, index aligned with dist_test rows.
     """
-    n_test, n_train = dist_test.shape
-    y_pred = np.empty(n_test, dtype=y_train.dtype)
+    preds = {}
 
-    for i in range(n_test):
-        # Get indices of k smallest distances for test sample i
-        nearest_idx = np.argpartition(dist_test[i], k)[:k]  # fast partial sort
-        nearest_labels = y_train[nearest_idx]
+    for query, row in dist_test.iterrows():
+        # k nearest training samples
+        nearest_idx = row.nsmallest(k).index
 
-        # Majority vote
+        # map to labels
+        nearest_labels = [y_train[name] for name in nearest_idx]
+
+        # majority vote
         counts = Counter(nearest_labels)
-        y_pred[i] = counts.most_common(1)[0][0]
+        preds[query] = counts.most_common(1)[0][0]
 
-    return y_pred
-
-def long_to_square(dist_vec, n, m):
-    """
-    Convert flat distance vector into an n×m NumPy array (row-major).
-    """
-    if dist_vec.size != n * m:
-        raise ValueError(f"dist_vec length {dist_vec.size} != n*m ({n*m})")
-    return dist_vec.reshape((n, m), order="C")  # row-major
+    return preds
 
 # based on https://github.com/bacpop/PopPUNK/blob/4097473da3660a29dbb6efccc4dbaa6d1cfc8ed6/scripts/poppunk_extract_distances.py#L1
 def isolateNameToLabel(names):
@@ -56,32 +49,76 @@ def isolateNameToLabel(names):
 
     return labels
 
+def listDistInts(refSeqs, querySeqs, self=True):
+    """Gets the ref and query ID for each row of the distance matrix
+
+    Returns an iterable with ref and query ID pairs by row.
+
+    Args:
+        refSeqs (list)
+            List of reference sequence names.
+        querySeqs (list)
+            List of query sequence names.
+        self (bool)
+            Whether a self-comparison, used when constructing a database.
+            Requires refSeqs == querySeqs
+            Default is True
+    Returns:
+        ref, query (str, str)
+            Iterable of tuples with ref and query names for each distMat row.
+    """
+    num_ref = len(refSeqs)
+    num_query = len(querySeqs)
+    if self:
+        if refSeqs != querySeqs:
+            raise RuntimeError('refSeqs must equal querySeqs for db building (self = true)')
+        for i in range(num_ref):
+            for j in range(i + 1, num_ref):
+                yield(j, i)
+    else:
+        comparisons = [(0,0)] * (len(refSeqs) * len(querySeqs))
+        for i in range(num_query):
+            for j in range(num_ref):
+                yield(j, i)
+
 def read_distances_file(distances, samples, query_genome_labels, train_genome_labels):
     # parse genome ids and remove file extensions
     with open(samples, 'rb') as pickle_file:
         rlist, qlist, self = pickle.load(pickle_file)
 
     # get names order
-    train_genome_IDs = isolateNameToLabel(rlist)
-    test_genome_IDs = isolateNameToLabel(qlist)
+    r_names = isolateNameToLabel(rlist)
+    q_names = isolateNameToLabel(qlist)
 
-    # read embeddings
+    # Load sparse matrix
+    sparse = False
     if ".npz" in distances:
-        distance_matrix = sp.sparse.load_npz(distances).tocsr()        
+        sparse_mat = sparse.load_npz(distances)
+        sparse = True
     else:
-        distance_matrix = np.load(distances)
-        # sample just accessory distances
-        distance_matrix = long_to_square(distance_matrix[:, [1]], len(test_genome_IDs), len(train_genome_IDs))
+        X = np.load(distances)
 
-    # reorder
-    query_label_to_idx = {label: i for i, label in enumerate(query_genome_labels)}
-    query_idx = [query_label_to_idx[x] for x in test_genome_IDs if x in query_label_to_idx]
-    train_label_to_idx = {label: i for i, label in enumerate(train_genome_labels)}
-    train_idx = [train_label_to_idx[x] for x in train_genome_IDs if x in train_label_to_idx]
+    # create large dataframe, row = query, column = ref
+    # Create an n x m DataFrame of zeros
+    df = pd.DataFrame(np.zeros((len(q_names), len(r_names))))
 
-    dist = distance_matrix[query_idx, :][:, train_idx]
+    # Assign row names (index)
+    df.index = q_names
 
-    return dist, test_genome_IDs
+    # Assign column names
+    df.columns = r_names
+
+    # Write distances
+    if sparse:
+        for (r_index, q_index, dist) in zip(sparse_mat.col, sparse_mat.row, sparse_mat.data):
+            df.iat[q_index, r_index] = dist
+    else:
+        for i, (r_index, q_index) in enumerate(listDistInts(r_names, q_names, r_names == q_names)):
+            df.iat[q_index, r_index] = X[i,1]
+
+    print(df)
+
+    return df, q_names
 
 def get_options():
     description = "Assigns strains using ppsketchlib distances"
@@ -116,34 +153,32 @@ def main():
     outpref = options.outpref
 
     train_genome_labels = []
-    train_cluster_assignments = []
+    train_cluster_assignments = {}
     with open(options.train_labels, "r") as i:
         i.readline()
         for line in i:
             split_line = line.rstrip().split(",")
             genome_name = split_line[0]
             train_genome_labels.append(genome_name)
-            train_cluster_assignments.append(split_line[1])
+            train_cluster_assignments[genome_name] = split_line[1]
     
     query_genome_labels = []
-    query_cluster_assignments = []
+    query_cluster_assignments = {}
     with open(options.query_labels, "r") as i:
         i.readline()
         for line in i:
             split_line = line.rstrip().split(",")
             genome_name = split_line[0]
             query_genome_labels.append(genome_name)
-            query_cluster_assignments.append(split_line[1])
-
+            query_cluster_assignments[genome_name] = split_line[1]
 
     print("Reading distances")
     dist_test, test_genome_IDs = read_distances_file(query_distances, query_samples, query_genome_labels, train_genome_labels)
 
     #print(f"dist_test: {dist_test.shape}")
 
-    y_train = np.array(train_cluster_assignments)
-    y_test = np.array(query_cluster_assignments)
-
+    y_train = np.array([train_cluster_assignments[col_name] for col_name in dist_test.columns])
+    y_test = np.array([query_cluster_assignments[row_name] for row_name in dist_test.index])
     #print(f"y_test: {y_test.shape}")
 
     print("Running kNN")
@@ -152,7 +187,8 @@ def main():
     for n_neighbors in n_neighbors_list:
         try:
             # predict from classifier
-            y_pred = knn_predict(dist_test, y_train, k=n_neighbors)
+            query_cluster_predictions = knn_predict(dist_test, train_cluster_assignments, k=n_neighbors)
+            y_pred = np.array([query_cluster_predictions[row_name] for row_name in dist_test.index])
 
             query_list_df_pred = pd.DataFrame(columns=['Taxon', 'predicted_label'])
             query_list_df_pred['Taxon'] = query_genome_labels
