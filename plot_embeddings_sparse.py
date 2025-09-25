@@ -92,7 +92,7 @@ def main():
 
             filtered_data = OrderedDict()
             for key, val in labels_dict.items():
-                filtered_data[key] = "0" if val not in top_labels else int(val)
+                filtered_data[key] = "0" if val not in top_labels else val
 
             labels_dict = filtered_data
             #print(labels_dict)

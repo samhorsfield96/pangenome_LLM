@@ -60,7 +60,7 @@ def main():
 
             filtered_data = OrderedDict()
             for key, val in labels_dict.items():
-                filtered_data[key] = "0" if val not in top_labels else int(val)
+                filtered_data[key] = "0" if val not in top_labels else val
 
             labels_dict = filtered_data
             #print(labels_dict)
@@ -100,7 +100,7 @@ def main():
     else:
         # get metadata, ensuring in same order as files passed
         sample_list = [x for x in genome_IDs if x in labels_dict]
-        cluster_list = [labels_dict[x] for x in genome_IDs if x in labels_dict]
+        cluster_list = [str(labels_dict[x]) for x in genome_IDs if x in labels_dict]
 
         # get all original clusters
         original_cluster_list = [original_labels_dict[x] for x in genome_IDs if x in original_labels_dict]
