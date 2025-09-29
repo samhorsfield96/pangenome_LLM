@@ -49,7 +49,7 @@ def main():
             for line in i1:
                 split_line = line.rstrip().split(",")
                 labels_dict[split_line[0]] = split_line[1]
-                original_labels_dict[split_line[0]] = int(split_line[1])
+                original_labels_dict[split_line[0]] = split_line[1]
 
         if options.max_labels != None:
             counter = Counter([x for x in labels_dict.values()])
@@ -96,6 +96,7 @@ def main():
     if labels == None:
         sample_list = [x for x in genome_IDs]
         cluster_list = ["0" for x in genome_IDs]
+        original_cluster_list = ["0" for x in genome_IDs]
         
     else:
         # get metadata, ensuring in same order as files passed
@@ -138,7 +139,7 @@ def main():
         silhouette_per_label_df.to_csv(outpref + "_silhouette.tsv", sep='\t', index=False)
 
     UMAP_embedding_df = pd.DataFrame(UMAP_embedding)
-    UMAP_embedding_df.insert(loc=0, column='Cluster', value=cluster_list)
+    UMAP_embedding_df.insert(loc=0, column='Cluster', value=original_cluster_list)
     UMAP_embedding_df.insert(loc=0, column='Sample', value=sample_list)
 
     UMAP_embedding_df.columns = ['Sample', 'Cluster', 'UMAP1', 'UMAP2']
@@ -163,7 +164,7 @@ def main():
 
     print(f"Colour key:\n{color_key}")
 
-    p = umap.plot.points(mapper, labels=UMAP_embedding_df['Cluster'], color_key=color_key, background="black")        
+    p = umap.plot.points(mapper, labels=np.array(cluster_list), color_key=color_key, background="black")        
 
     print("Saving file...")
     plt.savefig(outpref + "_UMAP.png", dpi=300, bbox_inches="tight")
