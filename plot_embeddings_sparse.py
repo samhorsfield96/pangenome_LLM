@@ -98,33 +98,64 @@ def main():
             #print(labels_dict)
             #print(top_labels)
         
-    # read embeddings
-    print("Reading distances...")
-    df = sp.sparse.load_npz(distances).tocsr()
-    #print(df)
-
     # parse genome ids and remove file extensions
     with open(samples, 'rb') as f:
         genome_IDs = pickle.load(f)
     genome_IDs = genome_IDs[0]
     genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in genome_IDs]
 
-    # remove infintities
-    df.data = np.nan_to_num(df.data, posinf=0, neginf=0).astype(np.float32)
-   
-    data = df.data
-    print("NaNs:", np.isnan(data).sum())
-    print("Infs:", np.isinf(data).sum())
-    print("Max:", data.max(), "Min:", data.min())
+    print("Reading distances...")
+    df = sp.sparse.load_npz(distances).tocsr()
 
-    df = df.maximum(df.T)   # ensures symmetry, keeps sparsity
+    # Replace infinities with a large finite value (1.0, maximum distance)
+    finite_mask = np.isfinite(df.data)
+    if not finite_mask.any():
+        raise ValueError("All stored entries are infinite.")
+    fill_value = 1.0
+    df.data = np.where(np.isfinite(df.data), df.data, fill_value).astype(np.float32)
+
+    # Ensure symmetry and zero diagonal
+    df = df.maximum(df.T)
     df.setdiag(0)
 
-    reducer = umap.UMAP(metric='precomputed', random_state=42)
+    # Identify isolated rows (no neighbors)
+    row_counts = np.diff(df.indptr)
+    isolated = np.where(row_counts == 0)[0]
+    print(f"Found {len(isolated)} isolated rows")
 
+    if len(isolated) == df.shape[0]:
+        raise ValueError("All rows are isolated — cannot run UMAP.")
+
+    # Remove isolated rows, default is 15 nearest neighbours
+    threshold = 15
+    mask_keep = row_counts >= threshold
+    kept_idx = np.where(mask_keep)[0]
+    removed_idx = np.where(~mask_keep)[0]
+    print(f"Removing {len(removed_idx)} rows: {removed_idx}")
+
+    # remove rows that are not part of the embedding
+    df2 = df[mask_keep][:, mask_keep].tocsr()
+    genome_IDs_kept = [genome_IDs[i] for i in kept_idx]
+    genome_IDs = genome_IDs_kept
+    assert df2.shape[0] == len(genome_IDs_kept)  # should pass now
+
+    # Pick a safe n_neighbors
+    row_counts2 = np.diff(df2.indptr)
+    min_neighbors = row_counts2.min()
+    safe_n_neighbors = max(2, min(15, min_neighbors, df2.shape[0] - 1))
+    print(f"Using n_neighbors={safe_n_neighbors}")
+
+    # Run UMAP
+    reducer = umap.UMAP(
+        metric="precomputed",
+        n_neighbors=safe_n_neighbors,
+        random_state=42
+    )
     print("Generating UMAP...")
-    mapper = reducer.fit(df)
-    UMAP_embedding = reducer.transform(df)
+    mapper = reducer.fit(df2)
+
+    print("Generating embedding...")
+    UMAP_embedding = reducer.transform(df2)
 
     p = umap.plot.connectivity(mapper, show_points=True)
     plt.savefig(outpref + "_connectivity.png", dpi=300, bbox_inches="tight")
@@ -145,7 +176,7 @@ def main():
         original_cluster_list = [original_labels_dict[x] for x in genome_IDs if x in original_labels_dict]
 
         # calculate silhouette score per label for all values
-        silhouette_vals = silhouette_samples(df, original_cluster_list)
+        silhouette_vals = silhouette_samples(df2, original_cluster_list)
 
         # convert to numpy arrays for easy indexing
         cluster_array = np.array(original_cluster_list)
