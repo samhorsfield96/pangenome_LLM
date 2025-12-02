@@ -22,11 +22,44 @@ def main():
 
     # df: your presence/absence matrix (rows = genes, columns = genomes)
 
-    df = pd.read_csv(infile, sep=",")
-    df = df.set_index(df.columns[0])
 
-    # Write in FASTA format
-    with open(outpref + ".fasta", "w") as out:
+    # determine if reversed
+    reverse = False
+    with open(infile, "r") as input:
+        header = input.readline().split(",")
+        if header[0] == "genome":
+            reverse = True
+    
+    # reverse is more computational efficient, although input is unconventional
+    if reverse:
+        with open(infile, "r") as input, open(outpref + ".fasta", "w") as out:
+            header = input.readline()
+
+            for line in input:
+                split_line = line.rstrip().split(",")
+                genome = split_line[0]
+                seq = ''.join('c' if val == "1" else 'a' for val in split_line[1:])
+                out.write(f">{genome}\n{wrap(seq, fasta_wrap)}\n")
+
+    else:
+        df = pd.read_csv(infile, sep=",")
+        df = df.set_index(df.columns[0])
+
+        with open(outpref + ".fasta", "w") as out:
+            for genome in df.columns:
+                seq = ''.join('c' if val == 1 else 'a' for val in df[genome])
+                out.write(f">{genome}\n{wrap(seq, fasta_wrap)}\n")
+
+    
+
+
+
+    
+
+
+        df = pd.read_csv(infile, sep=",")
+        df = df.set_index(df.columns[0])
+
         for genome in df.columns:
             seq = ''.join('c' if val == 1 else 'a' for val in df[genome])
             out.write(f">{genome}\n{wrap(seq, fasta_wrap)}\n")
