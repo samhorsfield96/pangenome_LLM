@@ -50,13 +50,6 @@ def main():
                 seq = ''.join('c' if val == 1 else 'a' for val in df[genome])
                 out.write(f">{genome}\n{wrap(seq, fasta_wrap)}\n")
 
-    
-
-
-
-    
-
-
         df = pd.read_csv(infile, sep=",")
         df = df.set_index(df.columns[0])
 
