@@ -125,9 +125,6 @@ def main():
             gene2 = gene_index[pos2]
             direct = True if ARACNE == "1" else False
             MI = float(MI)
-
-            if direct_only and not direct:
-                continue
             
             # determine if gone too far, as MI is ordered
             if MI < outlier_threshold:
