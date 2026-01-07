@@ -1,21 +1,16 @@
 
 import argparse
-import umap
-import umap.plot
+from collections import OrderedDict
 import pandas as pd
 import pickle
-from collections import OrderedDict, Counter
-from itertools import chain
 import numpy as np
 import scipy as sp
-from scipy.sparse import coo_matrix
-from sklearn.datasets import load_digits
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_samples
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+from scipy.sparse import coo_matrix, csr_matrix
 import os
+
+from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score
+from sklearn.preprocessing import normalize
+import scanpy as sc
 
 def remove_coo(M: coo_matrix, to_remove):
     to_remove = np.array(to_remove)
@@ -43,9 +38,9 @@ def remove_coo(M: coo_matrix, to_remove):
     )
 
 def get_options():
-    description = "Plots UMAP of ppsketchlib distances"
+    description = "Generates Leiden clusters of Sketchlib sparse matrices"
     parser = argparse.ArgumentParser(description=description,
-                                        prog='python plot_embeddings_sparse.py')
+                                        prog='python generate_clusters_sparse.py')
     IO = parser.add_argument_group('Input/options.out')
     IO.add_argument('--distances',
                     required=True,
@@ -59,6 +54,8 @@ def get_options():
     IO.add_argument('--outpref',
                 default="output",
                 help='Output prefix. Default = "output"')
+    IO.add_argument("--resolution", default="1.0", help="Resolution for leiden clustering.")
+    IO.add_argument("--n_neighbors", default="10", help="Number of neighbors for KNN classification.")
     return parser.parse_args()
 
 def main():
@@ -68,6 +65,14 @@ def main():
     labels = options.labels
     outpref = options.outpref
 
+    # parse genome ids and remove file extensions
+    with open(samples, 'rb') as f:
+        genome_IDs = pickle.load(f)
+    genome_IDs = genome_IDs[0]
+    genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in genome_IDs]
+
+    labels_dict = OrderedDict()
+    original_labels_dict =  OrderedDict()
     cluster_assignments = []
     if labels != None:
         print("Reading labels...")
@@ -75,13 +80,15 @@ def main():
             i1.readline()
             for line in i1:
                 split_line = line.rstrip().split(",")
-                cluster_assignments.append(split_line[1])
-        
-    # parse genome ids and remove file extensions
-    with open(samples, 'rb') as f:
-        genome_IDs = pickle.load(f)
-    genome_IDs = genome_IDs[0]
-    genome_IDs = [os.path.splitext(os.path.splitext(x)[0])[0] for x in genome_IDs]
+                labels_dict[split_line[0]] = split_line[1]
+                original_labels_dict[split_line[0]] = split_line[1]
+
+        # get metadata, ensuring in same order as files passed
+        sample_list = [x for x in genome_IDs if x in labels_dict]
+        cluster_list = [str(labels_dict[x]) for x in genome_IDs if x in labels_dict]
+
+        # get all original clusters
+        cluster_assignments = [original_labels_dict[x] for x in genome_IDs if x in original_labels_dict]
 
     print("Reading distances...")
     df = sp.sparse.load_npz(distances).tocsr()
@@ -106,7 +113,7 @@ def main():
         raise ValueError("All rows are isolated — cannot run UMAP.")
 
     # Remove isolated rows, default is 15 nearest neighbours
-    threshold = 15
+    threshold = 1
     mask_keep = row_counts >= threshold
     kept_idx = np.where(mask_keep)[0]
     removed_idx = np.where(~mask_keep)[0]
@@ -120,18 +127,62 @@ def main():
 
     per_iteration_accuracy = []
 
+    leiden_resolution_list = [float(j) for j in options.resolution.split(",")]
+    n_neighbors_list = [int(k) for k in options.n_neighbors.split(",")]
+
     print("Iterating through nearest neighbours...")
     for n_neighbors in n_neighbors_list:
         print(f"K: {n_neighbors}")
+
+        # find KNN in sparse matrix
+        S = df2.copy()
+        N = S.shape[0]
+
+        rows = []
+        cols = []
+        vals = []
+
+        for i in range(N):
+            start, end = S.indptr[i], S.indptr[i + 1]
+            row_indices = S.indices[start:end]
+            row_data = S.data[start:end]
+
+            if row_data.size == 0:
+                continue
+
+            if row_data.size > n_neighbors:
+                topk = np.argpartition(-row_data, n_neighbors)[:n_neighbors]
+            else:
+                topk = np.arange(row_data.size)
+
+            rows.extend([i] * len(topk))
+            cols.extend(row_indices[topk])
+            vals.extend(row_data[topk])
+
+        connectivities = csr_matrix((vals, (rows, cols)), shape=S.shape)
+
+        # Symmetrize
+        connectivities = 0.5 * (connectivities + connectivities.T)
+
+        # Optional normalization
+        connectivities.data /= connectivities.data.max()
+
         for leiden_resolution in leiden_resolution_list:
             print(f"Leiden: {leiden_resolution}")
 
-            adata = sc.AnnData(np.zeros((df2.shape[0], 1)))
+            adata = sc.AnnData(np.zeros((connectivities.shape[0], 1)))
             adata.obsp["connectivities"] = connectivities
+
+            # debugging
+            #G = adata.obsp["connectivities"]
+            #print("nnz:", G.nnz)
+            #print("min:", G.data.min() if G.nnz > 0 else None)
+            #print("max:", G.data.max() if G.nnz > 0 else None)
 
             sc.tl.leiden(
                 adata,
                 resolution=leiden_resolution,
+                adjacency=adata.obsp["connectivities"],
                 key_added="leiden",
                 flavor="igraph",
                 n_iterations=2
@@ -140,20 +191,20 @@ def main():
             leiden_labels = adata.obs["leiden"].astype(int).to_numpy()
 
             df_pred = pd.DataFrame(columns=['Taxon', 'predicted_label'])
-            df_pred['Taxon'] = prompt_list_df.iloc[:, 0].values
+            df_pred['Taxon'] = genome_IDs
             df_pred['predicted_label'] = leiden_labels
-            df_pred.to_csv(args.outpref + f"_K_{n_neighbors}_resolution_{leiden_resolution}_predictions.tsv", sep='\t', index=False)
+            df_pred.to_csv(outpref + f"_K_{n_neighbors}_resolution_{leiden_resolution}_predictions.tsv", sep='\t', index=False)
 
             if labels != None:
 
                 true_labels = np.array(cluster_assignments)
 
                 df_true = pd.DataFrame(columns=['Taxon', 'predicted_label', 'true_label'])
-                df_true['Taxon'] = prompt_list_df.iloc[:, 0].values
+                df_true['Taxon'] = genome_IDs
                 df_true['predicted_label'] = leiden_labels
                 df_true['true_label'] = true_labels
 
-                df_true.to_csv(args.outpref + f"_K_{n_neighbors}_resolution_{leiden_resolution}_true.tsv", sep='\t', index=False)
+                df_true.to_csv(outpref + f"_K_{n_neighbors}_resolution_{leiden_resolution}_true.tsv", sep='\t', index=False)
 
                 ari = adjusted_rand_score(true_labels, leiden_labels)
                 ami = adjusted_mutual_info_score(true_labels, leiden_labels)
@@ -166,13 +217,11 @@ def main():
                 })
     
 
-    if args.prompt_labels != None:
+    if labels != None:
         per_label_df = pd.DataFrame(per_iteration_accuracy)
 
         # Save to TSV
-        per_label_df.to_csv(args.outpref + f"_per_iter_accuracy.tsv", sep='\t', index=False)
-
-
+        per_label_df.to_csv(outpref + f"_per_iter_accuracy.tsv", sep='\t', index=False)
 
 if __name__ == "__main__":
     main()
