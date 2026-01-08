@@ -139,9 +139,9 @@ def leiden_clustering(df, n_neighbors_list, leiden_resolution_list, genome_IDs, 
                     'AMI': ami
                 })
 
-                best_ARI = best_params["ARI"]
+                best_AMI = best_params["AMI"]
 
-                if ari > best_ARI:
+                if ami > best_AMI:
                     best_params = {"K": n_neighbors, "resolution": leiden_resolution, "ARI": ari, "AMI": ami}
             else:
                 df_pred = pd.DataFrame(columns=['Taxon', 'predicted_label'])
@@ -242,8 +242,6 @@ def main():
 
         print(best_params)
         _ = leiden_clustering(df2, [best_params["K"]], [best_params["resolution"]], genome_IDs, cluster_assignments, labels, outpref, write=True)
-
-
 
 if __name__ == "__main__":
     main()
