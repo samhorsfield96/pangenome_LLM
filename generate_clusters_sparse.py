@@ -40,14 +40,12 @@ def leiden_clustering(df, n_neighbors_list, leiden_resolution_list, genome_IDs, 
     for n_neighbors in n_neighbors_list:
         print(f"K: {n_neighbors}")
 
-        # # find KNN in sparse matrix
+        # Convert distance -> similarity
         S = df.copy()
-
+        S.data = 1.0 - S.data
         N = S.shape[0]
 
-        rows = []
-        cols = []
-        vals = []
+        rows, cols, vals = [], [], []
 
         for i in range(N):
             start, end = S.indptr[i], S.indptr[i + 1]
@@ -70,9 +68,6 @@ def leiden_clustering(df, n_neighbors_list, leiden_resolution_list, genome_IDs, 
 
         # Symmetrize
         connectivities = 0.5 * (connectivities + connectivities.T)
-
-        # Optional normalization
-        connectivities.data /= connectivities.data.max()
 
         for leiden_resolution in leiden_resolution_list:
             print(f"Leiden: {leiden_resolution}")
