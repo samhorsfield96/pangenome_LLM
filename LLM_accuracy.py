@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 
 def get_options():
-    description = "Generates genomes from LLM"
+    description = "Compares generated genome to prompted genome"
     parser = argparse.ArgumentParser(description=description,
-                                        prog='python tokenise_clusters.py')
+                                        prog='python LLM_accuracy.py')
     IO = parser.add_argument_group('Input/options.out')
     IO.add_argument('--outpref',
                     default="comparisons",
@@ -31,19 +31,13 @@ def get_options():
     return parser.parse_args()
 
 def main():
-    # options = get_options()
-    # token_data = options.token_data
-    # reps = options.reps
-    # LLM_output = options.LLM_output
-    # outpref = options.outpref
-    # genome_only = options.outpref
-    
-    token_data = "/home/shorsfield/software/pangenome_LLM/tokenised_genomes.pkl"
-    reps = "/home/shorsfield/software/pangenome_LLM/grouped_genes.pkl"
-    LLM_output = "/home/shorsfield/software/pangenome_LLM/LLM_out_temp_1.5/predicted_sequences.pkl"
-    outpref = "temp_1.5_comparison"
-    genome_only = True
-    
+    options = get_options()
+    token_data = options.token_data
+    reps = options.reps
+    LLM_output = options.LLM_output
+    outpref = options.outpref
+    genome_only = options.outpref
+
     # load in all data
     with (open(token_data, "rb")) as f:
         gene_tokens, reps_dict = pickle.load(f)
