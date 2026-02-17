@@ -34,4 +34,4 @@ Scripts for generating token-level annotations and analysing function of tokens.
 
 ## training_preparation
 
-Scripts for preparing data for training of PanBART
+Scripts for preparing data for training of PanBART.
