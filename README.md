@@ -1,5 +1,7 @@
 # A repository of scripts for testing of PanBART, an LLM trained on pangenomes
 
+Find the PanBART repository [here](https://github.com/samhorsfield96/panBART/tree/main#)
+
 ## coselection_analysis
 
 Scripts to aid in detection of signals of epistasis.
