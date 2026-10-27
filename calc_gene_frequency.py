@@ -40,7 +40,10 @@ def main():
                     break
                 line = line.rstrip()
                 split_line = line.split("\t")
-                token = int(split_line[1])
+                try:
+                    token = int(split_line[1])
+                except ValueError:
+                    continue
 
                 annotation_dict[token] = line
                 annotation_count_dict[token] = 0

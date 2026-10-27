@@ -8,7 +8,7 @@ def parse_args():
     parser.add_argument('--absolute-IDs',
                     action="store_true",
                     default=False,
-                    help='Use absolute gene IDs to calculate frequency, combining forward and reverse strand genes.')
+                    help='Use absolute gene IDs, combining forward and reverse strand genes.')
 
     args = parser.parse_args()
 
@@ -30,14 +30,20 @@ def main():
                 break
             gene_presence_genome = {}
 
-            split_line = line.rstrip().split("\t")
+            split_line = line.rstrip().split()
             genome_id = split_line[0]
 
-            split_line2 = split_line[-1].split(" ")
+            split_line2 = split_line[1:]
             token_dict = {token: [] for token in tokens}
             for idx, gene in enumerate(split_line2):
                 if gene != "_":
-                    abs_gene_ID = str(abs(int(gene)))
+                    try:
+                        abs_gene_ID = str(abs(int(gene)))
+                    except ValueError:
+                        print(infile)
+                        print(genome_id)
+                        print(split_line2)
+                        raise ValueError
                     gene = abs_gene_ID if absolute_IDs else gene
                 
                 if gene in token_dict:

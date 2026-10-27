@@ -93,7 +93,7 @@ def read_distances_file(distances, samples, query_genome_labels, train_genome_la
     # Load sparse matrix
     sparse = False
     if ".npz" in distances:
-        sparse_mat = sparse.load_npz(distances)
+        sparse_mat = sp.sparse.load_npz(distances)
         sparse = True
     else:
         X = np.load(distances)
