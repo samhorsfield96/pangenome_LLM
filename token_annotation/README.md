@@ -88,3 +88,19 @@ python token_likelihood_position.py --token-likelhoods <likelihoods_file> --geno
 | `--ignore-breaks` | No | False | Ignore contig breaks in plotting |
 | `--ignore-others` | No | False | Ignore genes outside of top-N frequency in regions |
 | `--outpref` | No | `output` | Output prefix |
+
+### token_count_distribution.py
+
+Generate distributions of chosen tokens, as well as contig breaks ("_") and unknown tokens.
+
+**Usage**
+```
+python token_count_distribution.py [-h] --genomes GENOMES --tokeniser TOKENISER [--tokens TOKENS] [--outpref OUTPREF]
+```
+
+| Argument | Required | Default | Description |
+|---|---|---|---|
+| `--genomes` | Yes | — | Tokenised input genomes from WTBcluster |
+| `--tokeniser` | Yes | — | `tokeniser.json` from panBART fitting. |
+| `--tokens` | No | `_,<unk>` | Comma separated list of tokens to generate distribution for. If not specified, just looks for unknowns and contig breaks. |
+| `--outpref` | No | `output` | Output prefix |
