@@ -3,182 +3,115 @@ library(ggplot2)
 library(ggsci)
 library(ggpubr)
 library(tidyverse)
+library(optparse)
 
-# read in gene frequencies and generate dictionary
-absolute_gene_IDs <- TRUE
-filename <- "gene_freq/S_pneumoniae_gene_frequency_All_absolute_geneIDs.txt"
-gene.freq.df <- read.csv(filename, header = 1, sep = "\t")
-gene.freq.df$Gene_ID <- as.numeric(gene.freq.df$Gene_ID)
+option_list <- list(
+  make_option("--root", type="character", help="Root input directory containing one subdirectory per species."),
+  make_option("--outdir", type="character", help="Output directory for saved plots."),
+  make_option("--species", type="character", help="Comma-separated list of species directory names (e.g. 'E_coli,S_pneumoniae')."),
+  make_option("--species-names", type="character", help="Comma-separated list of species display names (e.g. 'E. coli,S. pneumoniae').")
+)
+opt <- parse_args(OptionParser(option_list=option_list))
 
-# run for training dataset
-filename <- "log_pseudolikelihoods/stratified-shuffled/per-gene/AtB_All_S_pneumoniae_training_N50_stratified_contig_shuf_encoder_decoder_drop0_pseudoL_per_gene.txt"
-data <- read.csv(filename, header = 1, sep = "\t")
-if (absolute_gene_IDs == TRUE)
+root <- opt$root
+outdir <- opt$outdir
+species_list <- strsplit(opt$species, ",")[[1]]
+species_name_list <- strsplit(opt$species_names, ",")[[1]]
+
+j <- 1
+for (j in 1:length(species_list))
 {
-  data$Gene_ID <- abs(as.numeric(data$Gene_ID))
+  species <- species_list[[j]]
+  species_name <- species_name_list[[j]]
+  indir <- paste0(root, species, "/")
+  
+  # read in gene frequencies and generate dictionary
+  absolute_gene_IDs <- TRUE
+  
+  gene_freq_file <- paste0(indir, "train_gene_counts_abs.txt")
+  gene.freq.df <- read.csv(gene_freq_file, header = 1, sep = "\t")
+  pseudolikelihood_file <- paste0(indir, "all_genomes_train_with_unk_per_gene.txt")
+  pseudolikelihood_random_file <- paste0(indir, "all_genomes_train_with_unk_random_per_gene.txt")
+  pseudolikelihood.df <- read.csv(pseudolikelihood_file, header = 1, sep = "\t")
+  pseudolikelihood.random.df <- read.csv(pseudolikelihood_random_file, header = 1, sep = "\t")
+  gene.freq.df$Gene_ID <- as.numeric(gene.freq.df$Gene_ID)
+  pseudolikelihood.df$Gene_ID <- as.numeric(pseudolikelihood.df$Gene_ID)
+  pseudolikelihood.random.df$Gene_ID <- as.numeric(pseudolikelihood.random.df$Gene_ID)
+  
+  if (absolute_gene_IDs) {
+    Total_genomes_tmp <- gene.freq.df$Total_genomes[1]
+    Total_genes_tmp <- gene.freq.df$Total_genes[1]
+    gene.freq.df$Gene_ID <- abs(gene.freq.df$Gene_ID)
+    gene.freq.df_tmp <- gene.freq.df
+    gene.freq.df <- gene.freq.df %>% 
+      group_by(Gene_ID) %>% 
+      summarize(Genome_count = sum(Genome_count), 
+                Total_count = sum(Total_count))
+    
+    gene.freq.df$Genome_freq <- gene.freq.df$Genome_count / Total_genomes_tmp
+    gene.freq.df$Total_freq <- gene.freq.df$Total_count / Total_genes_tmp
+    
+    
+    pseudolikelihood.df$Gene_ID <- abs(pseudolikelihood.df$Gene_ID)
+    pseudolikelihood.random.df$Gene_ID <- abs(pseudolikelihood.random.df$Gene_ID)
+  }
+  summary.df.pseudolikelihood <- pseudolikelihood.df %>% 
+    group_by(Gene_ID) %>% 
+    summarize(Avg_log_pseudolikelihood = mean(log_pseudolikelihood), Std_log_pseudolikelihood = sd(log_pseudolikelihood))
+  
+  summary.df.pseudolikelihood <- summary.df.pseudolikelihood[!is.na(summary.df.pseudolikelihood$Gene_ID),]
+  summary.df.pseudolikelihood$Type <- "Non-random"
+  
+  summary.df.pseudolikelihood.random <- pseudolikelihood.random.df %>% 
+    group_by(Gene_ID) %>% 
+    summarize(Avg_log_pseudolikelihood = mean(log_pseudolikelihood), Std_log_pseudolikelihood = sd(log_pseudolikelihood))
+  summary.df.pseudolikelihood.random$Type <- "Random"
+  
+  summary.df.pseudolikelihood.random <- summary.df.pseudolikelihood.random[!is.na(summary.df.pseudolikelihood.random$Gene_ID),]
+  
+  combined.df.nonrandom <- merge(summary.df.pseudolikelihood, gene.freq.df, by = c("Gene_ID"))
+  combined.df.random <- merge(summary.df.pseudolikelihood.random, gene.freq.df, by = c("Gene_ID"))
+  
+  all.merged <- rbind(combined.df.nonrandom, combined.df.random)
+  all.merged$Species <- species_name
+  
+  if (j == 1){
+    all.merged.total <- all.merged
+  } else {
+    all.merged.total <- rbind(all.merged.total, all.merged)
+  }
 }
 
-summary.df <- data %>% 
-  group_by(Gene_ID) %>% 
-  summarize(Avg_log_pseudolikelihood = mean(log_pseudolikelihood), Std_log_pseudolikelihood = sd(log_pseudolikelihood))
-summary.df <- summary.df %>% replace(is.na(.), 0)
-combined.df <- merge(summary.df, gene.freq.df, by = c("Gene_ID"))
+# plot average
+p <- ggplot(all.merged.total, aes(x = Genome_freq, y=Avg_log_pseudolikelihood,)) +
+  geom_point(alpha=0.2) +
+  facet_grid(Species ~ Type) +
+  #geom_smooth(method="loess", colour="blue", fill = "red") +
+  theme_light() +
+  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
+p
+
+ggsave(file=paste0(outdir, "log_pseudolikelihood_vs_gene_freq_training_scatter.png"), plot=p, height = 6, width = 8)
 
 # plot average
-p <- ggplot(combined.df, aes(x = Genome_freq, y=Avg_log_pseudolikelihood,)) +
+p <- ggplot(all.merged.total, aes(x = Genome_freq, y=Avg_log_pseudolikelihood,)) +
   geom_point(alpha=0.2) +
+  facet_grid(Species ~ Type) +
   geom_smooth(method="loess", colour="blue", fill = "red") +
   theme_light() +
   labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
 p
 
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_training_data_all_stratified_inference_loess.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_training_data_all_stratified_inference_loess.png", plot=p, height = 6, width = 8)
+ggsave(file=paste0(outdir, "log_pseudolikelihood_vs_gene_freq_training_loess.png"), plot=p, height = 6, width = 8)
+
 
 breaks <- seq(0, 1, by = 0.1)
-p <- ggplot(combined.df, aes(x = cut(Genome_freq, breaks = breaks), y=Avg_log_pseudolikelihood,)) +
+p <- ggplot(all.merged.total, aes(x = cut(Genome_freq, breaks = breaks), y=Avg_log_pseudolikelihood,)) +
   geom_boxplot() +
+  facet_grid(Species ~ Type) +
   theme_light() +
-  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
+  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 p
 
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_training_data_all_stratified_inference_boxplot.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_training_data_all_stratified_inference_boxplot.png", plot=p, height = 6, width = 8)
-
-# plot everything
-combined.df.all <- merge(data, gene.freq.df, by = c("Gene_ID"))
-p <- ggplot(combined.df.all, aes(x = Genome_freq, y=log_pseudolikelihood,)) +
-  geom_point(alpha=0.2) +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "log pseudolikelihood")
-p
-
-# run for held-in dataset
-filename <- "log_pseudolikelihoods/per_gene/S_pneumoniae_held_in_random_N50_encoder_decoder_drop0_pseudoL_per_gene.txt"
-data <- read.csv(filename, header = 1, sep = "\t")
-if (absolute_gene_IDs == TRUE)
-{
-  data$Gene_ID <- abs(as.numeric(data$Gene_ID))
-}
-
-summary.df <- data %>% 
-  group_by(Gene_ID) %>% 
-  summarize(Avg_log_pseudolikelihood = mean(log_pseudolikelihood), Std_log_pseudolikelihood = sd(log_pseudolikelihood))
-summary.df <- summary.df %>% replace(is.na(.), 0)
-combined.df <- merge(summary.df, gene.freq.df, by = c("Gene_ID"))
-
-# plot average
-p <- ggplot(combined.df, aes(x = Genome_freq, y=Avg_log_pseudolikelihood,)) +
-  geom_point(alpha=0.2) +
-  geom_smooth(method="loess", colour="blue", fill = "red") +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
-p
-
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_trained_data_all_inference_loess.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_trained_data_all_inference_loess.png", plot=p, height = 6, width = 8)
-
-breaks <- seq(0, 1, by = 0.1)
-p <- ggplot(combined.df, aes(x = cut(Genome_freq, breaks = breaks), y=Avg_log_pseudolikelihood,)) +
-  geom_boxplot() +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
-p
-
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_trained_data_all_inference_boxplot.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_trained_data_all_inference_boxplot.png", plot=p, height = 6, width = 8)
-
-# plot everything
-combined.df.all <- merge(data, gene.freq.df, by = c("Gene_ID"))
-p <- ggplot(combined.df.all, aes(x = Genome_freq, y=log_pseudolikelihood,)) +
-  geom_point(alpha=0.2) +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "log pseudolikelihood")
-p
-
-# run for held-out dataset
-filename <- "log_pseudolikelihoods/per_gene/S_pneumoniae_held_out_cluster1_N50_encoder_decoder_drop0_pseudoL_per_gene.txt"
-data <- read.csv(filename, header = 1, sep = "\t")
-if (absolute_gene_IDs == TRUE)
-{
-  data$Gene_ID <- abs(as.numeric(data$Gene_ID))
-}
-
-summary.df <- data %>% 
-  group_by(Gene_ID) %>% 
-  summarize(Avg_log_pseudolikelihood = mean(log_pseudolikelihood), Std_log_pseudolikelihood = sd(log_pseudolikelihood))
-summary.df <- summary.df %>% replace(is.na(.), 0)
-combined.df <- merge(summary.df, gene.freq.df, by = c("Gene_ID"))
-
-# plot average
-p <- ggplot(combined.df, aes(x = Genome_freq, y=Avg_log_pseudolikelihood,)) +
-  geom_point(alpha=0.2) +
-  geom_smooth(method="loess", colour="blue", fill = "red") +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
-p
-
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_untrained_data_all_inference_loess.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_untrained_data_all_inference_loess.png", plot=p, height = 6, width = 8)
-
-breaks <- seq(0, 1, by = 0.1)
-p <- ggplot(combined.df, aes(x = cut(Genome_freq, breaks = breaks), y=Avg_log_pseudolikelihood,)) +
-  geom_boxplot() +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
-p
-
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_untrained_data_all_inference_boxplot.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_novel_untrained_data_all_inference_boxplot.png", plot=p, height = 6, width = 8)
-
-# plot everything
-combined.df.all <- merge(data, gene.freq.df, by = c("Gene_ID"))
-p <- ggplot(combined.df.all, aes(x = Genome_freq, y=log_pseudolikelihood,)) +
-  geom_point(alpha=0.2) +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "log pseudolikelihood")
-p
-
-# run for random dataset
-filename <- "log_pseudolikelihoods/per_gene/S_pneumoniae_held_in_random_N50_encoder_decoder_drop0_pseudoL_randomise_per_gene.txt"
-data <- read.csv(filename, header = 1, sep = "\t")
-if (absolute_gene_IDs == TRUE)
-{
-  data$Gene_ID <- abs(as.numeric(data$Gene_ID))
-}
-
-summary.df <- data %>% 
-  group_by(Gene_ID) %>% 
-  summarize(Avg_log_pseudolikelihood = mean(log_pseudolikelihood), Std_log_pseudolikelihood = sd(log_pseudolikelihood))
-summary.df <- summary.df %>% replace(is.na(.), 0)
-combined.df <- merge(summary.df, gene.freq.df, by = c("Gene_ID"))
-
-# plot average
-p <- ggplot(combined.df, aes(x = Genome_freq, y=Avg_log_pseudolikelihood,)) +
-  geom_point(alpha=0.2) +
-  geom_smooth(method="loess", colour="blue", fill = "red") +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
-p
-
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_random_data_all_inference_loess.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_random_data_all_inference_loess.png", plot=p, height = 6, width = 8)
-
-breaks <- seq(0, 1, by = 0.1)
-p <- ggplot(combined.df, aes(x = cut(Genome_freq, breaks = breaks), y=Avg_log_pseudolikelihood,)) +
-  geom_boxplot() +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "Gene log pseudolikelihood")
-p
-
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_random_data_all_inference_boxplot.svg", plot=p, height = 6, width = 8)
-ggsave(file="Pneumo_log_pseudolikelihood_vs_gene_freq_encoder_decoder_random_data_all_inference_boxplot.png", plot=p, height = 6, width = 8)
-
-# plot everything
-combined.df.all <- merge(data, gene.freq.df, by = c("Gene_ID"))
-p <- ggplot(combined.df.all, aes(x = Genome_freq, y=log_pseudolikelihood,)) +
-  geom_point(alpha=0.2) +
-  theme_light() +
-  labs(x = "Gene Frequency", y = "log pseudolikelihood")
-p
-
+ggsave(file=paste0(outdir, "log_pseudolikelihood_vs_gene_freq_training_boxplot.png"), plot=p, height = 6, width = 11)

@@ -1,14 +1,20 @@
 library(ggplot2)
 library(ggpubr)
 library(ggsci)
+library(optparse)
 
-indir <- "token_likelihoods/"
+option_list <- list(
+  make_option("--indir", type="character", help="Directory containing *locus_pseudolikelihood.txt files."),
+  make_option("--labels", type="character", help="Comma-separated list of labels corresponding to input files in order."),
+  make_option("--outpref", type="character", default="output", help="Output prefix for saved plots. Default = 'output'")
+)
+opt <- parse_args(OptionParser(option_list=option_list))
+
+indir <- opt$indir
 files <- Sys.glob(paste(indir,"*locus_pseudolikelihood.txt", sep = ""))
+labels <- strsplit(opt$labels, ",")[[1]]
 
 final.df <- data.frame(Label = c(), Dataset = c(), GeneID = c(), GenomeID = c(), Quantile25 = c(), Quantile50 = c(), Quantile75 = c(), Min = c(), Max = c(), Mean = c())
-#labels <- c("ST131 A (-ve)", "ST131 C2 (+ve)", "ST131 C2 (-ve)", "ST73 (-ve)")
-labels <- c("ST131 (+ve)", "ST131 (-ve)", "ST73 (-ve)")
-
 i <- 1
 for (i in 1:length(files))
 {
@@ -40,4 +46,4 @@ p <- ggplot(final.df, aes(x = Label, y = Max, colour = Label)) +
   labs(y = "log pseudolikelihood", x = "Lineage")
 p
 
-ggsave(file="Ecoli_blaCTX-M_log_pseudolikelihood_comparison_all_signif.svg", plot=p, height = 6, width = 10)
+ggsave(file=paste0(opt$outpref, ".svg"), plot=p, height = 6, width = 10)

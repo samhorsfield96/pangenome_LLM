@@ -2,9 +2,9 @@ import argparse
 import re
 
 def get_options():
-    description = "Compares synteny between simulated and generated genomes"
+    description = "Parses logs from model training"
     parser = argparse.ArgumentParser(description=description,
-                                        prog='python synteny_accuracy.py')
+                                        prog='python parse_training_log.py')
     IO = parser.add_argument_group('Input/options.out')
     IO.add_argument('--infile',
                     required=True,

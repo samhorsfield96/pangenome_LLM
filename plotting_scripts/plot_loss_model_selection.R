@@ -1,8 +1,14 @@
 library(readr)
 library(ggplot2)
 library(randomForest)
+library(optparse)
 
-df<-read.csv("synteny_grid_summary.txt", sep = "\t", header = 0)
+option_list <- list(
+  make_option("--infile", type="character", help="Path to grid search summary file.")
+)
+opt <- parse_args(OptionParser(option_list=option_list))
+
+df<-read.csv(opt$infile, sep = "\t", header = 0)
 colnames(df) <- c("param_set_ID", "batch_size", "block_size", "n_layer", "n_head", "n_embd", "dropout", "learning_rate", "max_epochs", 
                   "weight_decay", "beta1", "beta2", "grad_clip", "decay_lr", "warmup_epochs", "lr_decay_epochs", 
                   "min_lr", "best_train_loss", "best_train_perp", "best_val_loss", "best_val_perp")
