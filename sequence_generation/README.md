@@ -44,3 +44,14 @@ python synteny_accuracy.py --real <real_genomes.txt> --sim <simulated_genomes.tx
 | `--real` | Yes | — | Path to real genome data `.txt` file |
 | `--sim` | Yes | — | Path to simulated genome data `.txt` file |
 | `--outpref` | No | `comparisons` | Output prefix |
+
+### transfer_segments.py
+
+Randomly transfers token segments from genomes in a donor file into the paired genomes (by line order) of a recipient file, in one direction only. Each inserted segment replaces an equal-length recipient segment, so genome lengths are unchanged. Both the inserted and replaced segments always lie within a single contig (never spanning a `_` contig break token). Input lines are `name<TAB>space-separated tokens`; output order matches the recipient input.
+
+**Usage:**
+```
+python transfer_segments.py --donor <donor.txt> --recipient <recipient.txt> [--out <file>] [--summary <file>] [--n_transfers <int>] [--min_length <int>] [--max_length <int>] [--seed <int>]
+```
+
+The summary TSV lists, per transfer, donor/recipient genome, length, donor and recipient coordinates (0-based, end-exclusive), and the inserted and replaced tokens.
